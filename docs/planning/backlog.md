@@ -1,7 +1,7 @@
-## Feature Backlog
+# Feature Backlog
 
-- Procedurally generate terrain
-- Generate mountains and valleys
+- Procedurally generate terrain with varied elevation
+- Generate mountains, valleys, and other landforms
 - Add different biomes
 - Add water / oceans
 - Generate vegetation
