@@ -1,0 +1,37 @@
+:root {
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+  --ui-text: #d5dbe8;
+  --ui-muted: #9aa3b5;
+  --ui-title: #f4f6fb;
+  --panel-bg: rgba(16, 19, 28, 0.82);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --accent: #7eb8ff;
+
+  font-family: var(--sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0e1118;
+}
+
+body {
+  color: var(--ui-text);
+}
