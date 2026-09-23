@@ -3,23 +3,25 @@
 A collection of weekly experiments exploring procedural generation
 techniques for world building using React and Three.js.
 
+**Live demo:** [https://erica-procedural-world.web.app](https://erica-procedural-world.web.app)
+
 ## Progress
 
 | Week | Topic | Key Concepts | Notes |
 |------|-------|--------------|-------|
-| 2 | Three.js Basics | scene, geometry, camera, lighting, OrbitControls | [Cube Exercise](...) |
-| 3 | Procedural Maps & Terrain | noise, height fields, frequency, amplitude, shaping, layers, hydraulic erosion | [Noise & Terrain](docs/tutorials/week03-procedural-noise-and-terrain.md) |
-| 4 | Erosion & Biomes | — | — |
+| 2 | Three.js Basics | scene, geometry, camera, lighting, OrbitControls | [React Setup](docs/tutorials/02-installing-react.md) |
+| 3 | Procedural Maps & Terrain | noise, height fields, frequency, amplitude, shaping, layers, hydraulic erosion | [Noise & Terrain](docs/tutorials/03-procedural-noise-and-terrain.md) |
+| 4 | Voxels & Firebase | voxels, density fields, CSG, meshing, Auth, Firestore, Hosting | [Voxels](docs/tutorials/04-01-voxels.md) · [Firebase](docs/tutorials/04-02-firebase.md) |
 
-## Current Experiment
+## Selected Experiments
 
-### Procedural Maps & Terrain
+<img src="docs/images/week03/terrain-3d.png" alt="Week 03 procedural terrain" width="480" />
 
-![Procedural terrain](docs/images/week03/terrain-3d.png)
+*Week 03 — Noise height field rendered as 3D terrain.*
 
-Week 3 explores procedural noise as a height field, layering and shaping
-noise to generate terrain, and modifying the resulting terrain through
-hydraulic erosion.
+<img src="docs/images/week04/voxel-blocks-csg.png" alt="Week 04 Marching Cubes voxels" width="480" />
+
+*Week 04 — Marching Cubes voxel mesh with chunk boundary overlay.*
 
 ## Repository Structure
 
@@ -36,4 +38,4 @@ hydraulic erosion.
 cd app
 npm install
 npm run dev
-
+```

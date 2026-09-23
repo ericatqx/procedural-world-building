@@ -584,7 +584,6 @@ plane. Later, the same ideas can drive:
 ## References
 
 **This repository**
-- `docs/tutorials/procedural-topography-maps-shaders.md`
 - `app/src/noise/types.ts`
 - `app/src/noise/generateHeightmap.ts`
 - `app/src/noise/explanations.ts`
