@@ -314,10 +314,10 @@ export function AppChrome({
 
   return (
     <div className="app-chrome">
-      <header className="app-title-bar">
-        <p className="app-kicker">Studio</p>
-        <h1 className="app-title">Procedural World Building</h1>
-      </header>
+        <header className="app-title-bar">
+          <p className="app-kicker">Week 03</p>
+          <h1 className="app-title">Noise & Terrain</h1>
+        </header>
 
       <aside className="side-panel" aria-label="Noise controls">
         <h2 className="panel-title">Controls</h2>

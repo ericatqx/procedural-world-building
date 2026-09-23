@@ -1,4 +1,4 @@
-# Procedural Noise and Terrain
+# Week 03 — Procedural Noise and Terrain
 
 ## Why This Matters
 
@@ -584,7 +584,7 @@ plane. Later, the same ideas can drive:
 ## References
 
 **This repository**
-- `docs/tutorials/03-procedural-topography-maps-shaders.md`
+- `docs/tutorials/procedural-topography-maps-shaders.md`
 - `app/src/noise/types.ts`
 - `app/src/noise/generateHeightmap.ts`
 - `app/src/noise/explanations.ts`

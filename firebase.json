@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "site": "erica-procedural-world",
+    "public": "app/dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

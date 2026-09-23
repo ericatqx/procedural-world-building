@@ -1,3 +1,165 @@
+.app-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.app-top-bar {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.week-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+}
+
+.auth-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 240px;
+  padding: 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+}
+
+.auth-bar button {
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ui-title);
+  font: inherit;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.auth-bar button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.auth-bar button:not(:disabled):hover {
+  border-color: var(--accent);
+  background: rgba(126, 184, 255, 0.12);
+}
+
+.auth-name {
+  padding: 0 6px;
+  color: var(--ui-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.auth-error {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0 6px 4px;
+  color: #e8a0a0;
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+
+.week-tabs button {
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.week-tabs button[aria-selected='true'] {
+  color: var(--ui-title);
+  border-color: var(--accent);
+  background: rgba(126, 184, 255, 0.12);
+}
+
+.mesh-mode-badge {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: var(--ui-muted);
+  font-size: 0.75rem;
+  width: fit-content;
+}
+
+.mesh-mode-badge strong {
+  color: var(--ui-title);
+  font-weight: 600;
+}
+
+.voxel-stats {
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(14, 17, 24, 0.55);
+  color: var(--ui-muted);
+  font-size: 0.68rem;
+  width: fit-content;
+}
+
+.voxel-toggle {
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--ui-title);
+  cursor: pointer;
+}
+
+.cloud-config {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.cloud-config-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cloud-config-actions .layer-add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cloud-config-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--ui-muted);
+}
+
 .app-shell {
   position: relative;
   width: 100%;
