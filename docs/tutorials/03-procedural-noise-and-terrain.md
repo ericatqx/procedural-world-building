@@ -1,597 +1,278 @@
 # Week 03 — Procedural Noise and Terrain
 
-## Why This Matters
-
-This exercise is the bridge between a flat practice mesh and a real terrain
-system. Instead of sculpting hills by hand, we let math generate a field of
-elevation values and use those values in two ways:
-
-1. as a **2D grayscale map** you can read like an image
-2. as **3D height** that pushes terrain vertices up and down
-
-That is the core pattern behind a lot of procedural world building. Once you
-can generate, shape, and combine height values, you have the foundation for
-mountains, plains, cliffs, islands, and eventually biomes or planets.
-
-In this repo, the exercise is intentionally visual and interactive:
-
-- a **2D Map** tab shows the current heightmap as grayscale
-- a **3D Terrain** tab applies that same data to a subdivided plane
-- a **layer system** lets you mix multiple kinds of noise together
+> Weighted layers of shaped noise build one height field that drives a 2D field map and a 3D terrain, and a stateful hydraulic-erosion simulation then rains on, drains and slowly reshapes that terrain.
 
 ---
 
-## Key Concepts
+## Why It Matters
 
-**Procedural noise**  
-A function that turns coordinates into values that *look natural*. The result
-is not truly random static. Nearby points usually have related values, which is
-why noise makes believable terrain instead of TV snow.
+- **Terrain from rules, not sculpting:** a few parameters describe an unbounded landscape; WASD scrolls the same rules to new ground.
+- **One field, many readers:** the height field is plain data, so the same array feeds a map, a mesh and a simulation. Later systems (biomes, voxels, placement) can read it the same way.
+- **Generation vs. process:** noise produces a *plausible* initial shape; erosion adds *history*: water paths, valleys and deposits that come from a process running over time, not from a formula.
 
-**Heightmap**  
-A 2D grid of numbers. Each number means “how high is this point?” In the 2D
-view, that becomes grayscale. In the 3D view, that becomes vertex height.
+---
 
-![2D noise map showing a grayscale height field](../images/week03/noise-map.png)
+## Core Concepts
 
-*The 2D Map tab: bright regions are high, dark regions are low — the height field as an image.*
-
-**Layer**  
-One pass of noise with its own settings: noise type, frequency, amplitude,
-shaping, enabled/disabled state, and blend weight.
-
-**Shaping**  
-Math that transforms the raw noise after sampling it. Shaping does not invent a
-new noise function; it changes the character of the values you already have.
-
-**Resolution**  
-How many samples are taken across the map. Higher resolution means a denser
-heightmap and more vertices in the terrain plane.
+| Concept | Meaning |
+|---|---|
+| **Noise** | Function `(x, y) → [-1, 1]` whose nearby samples are related: smooth structure, not static. Types: Perlin, Simplex, Value, Cellular/Worley. |
+| **Frequency** | Noise cells across the map window. Low = broad landforms, high = fine texture. |
+| **Shaping** | Per-layer transform of the sampled noise (ridged, billow, terracing, domain warp…). Changes character, not the source. |
+| **Layer** | One noise type + frequency + shaping + amplitude + weight, with an enable toggle. |
+| **Height field** | `resolution × resolution` `Float32Array` in `[-1, 1]`. The shared data structure. |
+| **Field map** | Grayscale inset of the generated height field (white high, black low). |
+| **Simulation state** | Three buffers on the same grid (**height**, **water**, **sediment**) that persist and change every step. |
+| **Capacity** | How much sediment moving water can carry; the gap between capacity and carried sediment decides erosion vs. deposition. |
 
 ---
 
 ## How It Works
 
-The implementation in this repo follows this pipeline:
+### 1. Noise → shaping → weighted layers → height field
 
-```text
-[ x, y coordinates ]
-        |
-        v
-[ sample each noise layer ]
-        |
-        v
-[ apply shaping per layer ]
-        |
-        v
-[ scale by layer amplitude ]
-        |
-        v
-[ blend layers by weight ]
-        |
-        v
-[ final heightmap ]
-      /   \
-     /     \
-    v       v
-[ 2D map ] [ 3D terrain ]
+```mermaid
+flowchart LR
+  P["grid point (x, z)<br/>+ world offset"] --> F
+  subgraph Li ["each enabled layer, sampled independently"]
+    F["× frequency"] --> N["noise type"] --> S["shaping"] --> A["× amplitude"]
+  end
+  A --> W["weighted average<br/>clamp to ±1"]
+  W --> H[(height field)]
+  H --> M[Field map]
+  H --> T[3D terrain mesh]
+  H --> E[Erosion buffers]
 ```
 
-### Stage 1: Coordinates
+Every enabled layer samples the **same** point, shapes it, scales it, and the results are averaged by weight:
 
-The system starts with 2D sample coordinates across a square grid. For each
-cell, the code samples one or more noise functions.
+$$h = \mathrm{clamp}\left(\frac{\sum_i w_i \, a_i \, \mathrm{shape}_i(\mathrm{noise}_i(f_i x,\ f_i z))}{\sum_i w_i},\ -1,\ 1\right)$$
 
-Conceptually:
+- **Amplitude** scales a layer's values; **weight** sets its share of the average. Because the sum is divided by total weight, adding a layer dilutes all the others.
+- **Why layer order doesn't matter (currently):** no layer reads another layer's output, and a weighted sum is commutative, so reordering the list gives an identical height field. Order would only matter with sequential operations: masks (ridges only on high ground), blend modes (multiply, max), or one layer warping the next.
 
-```text
-top-left -----------------> x
-   |
-   |
-   v
-   y
-```
-
-Every sample point asks the same question:
-
-```text
-What height value lives at this coordinate?
-```
-
-### Stage 2: Noise
-
-Each layer chooses a base noise function, such as Perlin or Cellular/Worley.
-That function returns a value roughly in the range `[-1, 1]`.
-
-Very loosely:
-
-```text
-n = noise(x, y)
-```
-
-### Stage 3: Shaping
-
-The raw value can be transformed to produce a different visual style:
-
-- smoother rolling hills
-- sharp ridges
-- stepped terraces
-- warped patterns
-
-This happens **per layer**, after sampling and before blending.
-
-### Stage 4: Heightmap
-
-After all active layers are sampled and shaped, the results are combined into
-one final heightmap.
-
-In this implementation:
-
-- each layer can be **enabled or disabled**
-- each layer has an **amplitude**
-- each layer has a **weight**
-- the weighted layer values are averaged into a single final map
-
-### Stage 5: 2D Map and 3D Terrain
-
-The same final heightmap is used in both tabs:
-
-- **2D Map**: values are drawn as grayscale pixels
-- **3D Terrain**: values are applied to the subdivided plane’s vertices
-
-That shared data is the important idea: the 2D image is not a separate effect.
-It is a readable preview of the same numbers that drive the terrain.
-
----
-
-## 2D Map vs 3D Terrain
-
-The two views are different windows into the same data.
-
-| View | What you see | What it helps you understand |
+| Shaping | Formula (`n` = sampled noise) | Character |
 |---|---|---|
-| **2D Map** | Bright and dark regions | The pattern of the height values |
-| **3D Terrain** | Hills, valleys, ridges, terraces | How those values feel as landforms |
+| None | `n` | Raw noise |
+| Ridged | `(1 − abs(n))² · 2 − 1` | Sharp crests along zero-crossings |
+| Billow | `abs(n) · 2 − 1` | Rounded mounds, V-shaped creases |
+| Turbulence | `Σ abs(n(2ᵏx)) · 0.5ᵏ`, normalised | Crumpled multi-scale roughness (param: octaves) |
+| Terracing | `floor(((n+1)/2) · steps) / steps`, rescaled to ±1 | Stepped bands (param: steps) |
+| Power | `sign(n) · abs(n)ᵖ` | Sharper peaks (p > 1) or fuller mids (p < 1) |
+| Domain warp | `n(x + s·n(x,y), y + s·n(x+5.2, y+1.3))` | Sinuous, twisted forms (param: strength) |
 
-A useful mental model:
+### 2. Hydraulic erosion: a stateful process
 
-- **white** = high
-- **black** = low
-- **gray** = somewhere in between
+The generated field is copied into the simulation's **height** buffer; **water** and **sediment** start at zero. Each animation frame runs `stepsPerFrame` steps, and every step mutates the three buffers in place:
 
-If a bright blob appears in the 2D map, you should expect a raised area in the
-3D terrain. If you see thin bands or cracked cells in 2D, those same structures
-should show up in 3D as stepped or broken-looking terrain features.
+```mermaid
+flowchart TD
+  R["Rain<br/>water += rain · pace on every cell"] --> FL
+  subgraph FL ["Flow × 4 passes"]
+    direction TB
+    SF["surface = height + water · depth scale"] --> SP["move water + carried sediment<br/>to all lower 4-neighbours,<br/>split ∝ surface drop"]
+  end
+  FL --> C["capacity = surface slope × moving water × sedimentCapacity"]
+  C --> Q{"sediment < capacity?"}
+  Q -- yes --> ER["Erode: height −, sediment +"]
+  Q -- no --> DE["Deposit: height +, sediment −"]
+  ER & DE --> EV["Evaporate<br/>water × (1 − evaporation · pace)"]
+  EV -. next step, same buffers .-> R
+```
 
-![3D terrain built from the same height data](../images/week03/terrain-3d.png)
+- **Flow by water surface**, not bare terrain, so depressions fill into level pools and overflow into the next basin; splitting across all lower neighbours joins trickles into streams.
+- **Capacity depends on moving water** (this step's outflow), so still pools carry little and deposit, while fast water on slopes erodes.
+- **Edges drain:** off-grid neighbours extrapolate the terrain slope outward, so water leaves where the land slopes off the map.
+- **Separate clocks:** water runs 4 flow passes per step at a shared `WATER_PACE`, while terrain change is scaled by a tiny `TERRAIN_RATE`, so water settles in seconds and the landform stays recognisable.
 
-*3D Terrain: the height field becomes vertex displacement, with elevation coloring and fog as rendering on top.*
+### 3. Views of the same data
 
----
+```mermaid
+flowchart LR
+  G[(generated height)] --> FM["Terrain view:<br/>Field map inset"]
+  SIM[(simulation buffers)] --> MESH["3D terrain<br/>(current height)"]
+  SIM --> WS["Water surface + rain<br/>(Simulation view only)"]
+  SIM --> DV["Data view inset:<br/>Height / Water / Sediment"]
+```
 
-## Noise Types
-
-This exercise includes four noise families. Each one answers the same question
-("what value is at this coordinate?") in a different visual style.
-
-| Noise type | Intuitive behavior | Typical look |
+| View | Shows | Scale |
 |---|---|---|
-| **Perlin** | Smooth gradient noise | Soft hills and natural rolling terrain |
-| **Simplex** | Similar to Perlin, on a different underlying structure | Smooth, organic detail with fewer visible grid artifacts |
-| **Value** | Interpolates random values stored on a grid | Blobby, patchy, a little more synthetic |
-| **Cellular / Worley** | Measures distance to nearby feature points | Cells, cracks, honeycomb-like regions |
+| **Terrain** | 3D mesh + **Field map** of the *generated* height field | Grayscale, fixed `[-1, 1]` |
+| **Simulation → 3D** | Same mesh from the simulation height, plus a cyan water surface at `height + depth` and rain streaks while running | Water alpha on a log scale of depth: thin films invisible, streams faint, pools solid |
+| **Data view: Height** | Current (eroded) height buffer | Grayscale, fixed `[-1, 1]` |
+| **Data view: Water / Sediment** | Water or sediment amount per cell | Cyan / sand, **normalised to the current maximum**: relative, not absolute |
 
-### Perlin
+![Terrain view: 3D terrain with contours, and the Field map inset showing the generated height field in grayscale](../images/week03/terrain-view-new.png)
 
-Perlin noise is the classic terrain choice. It tends to produce smooth,
-continuous variation, which is why it reads well as hills and valleys.
+*Terrain view: the Field map (top left) is the same generated height field as the 3D mesh, read as an image.*
 
-Simple form:
+![Simulation view after erosion has run: rain streaks, cyan water pooled in basins and valleys, and the Water data view inset](../images/week03/simulation-water-new.png)
 
-```text
-n = Perlin(x, y)
-```
-
-Visual feel:
-
-- broad rolling forms
-- gentle transitions
-- easy to read in both 2D and 3D
-
-### Simplex
-
-Simplex is closely related to Perlin but often feels a little cleaner or less
-grid-like. It is good when you want organic detail without obvious square-cell
-patterns.
-
-```text
-n = Simplex(x, y)
-```
-
-Visual feel:
-
-- smooth and natural
-- slightly different texture from Perlin
-- useful as a second layer to break up repetition
-
-### Value
-
-Value noise starts from random values on lattice points and blends between
-them. It is still smooth, but usually looks more patchy or “chunky” than
-gradient-based noise.
-
-```text
-n = lerp(fade(hash), ...)
-```
-
-Visual feel:
-
-- cloudy or blotchy
-- easy to understand
-- good for demonstrating the difference between noise families
-
-### Cellular / Worley
-
-Cellular noise measures the distance to the nearest random feature point. That
-makes it feel very different from the others.
-
-```text
-n = remap(min distance to feature point)
-```
-
-Visual feel:
-
-- cell boundaries
-- crackle-like patterns
-- good for plate-like regions, broken ground, or unusual terrain masks
+*Simulation view after about 12 s: rain falls, water collects in the valleys and basins, and the Water data view shows the same buffer as a map (brighter cyan = more water, relative to the current maximum).*
 
 ---
 
-## Parameters
+## Implementation
 
-The controls in the app separate **global sampling** from **per-layer style**.
+### Key Files
 
-### Resolution
-
-Resolution is shared by the whole exercise.
-
-| Lower resolution | Higher resolution |
+| File | Role |
 |---|---|
-| Fewer samples | More samples |
-| Blockier 2D map | Sharper 2D map |
-| Coarser terrain mesh | Smoother terrain mesh |
-| Faster | More expensive |
+| `app/src/shared/noise/types.ts` | Layer/settings types, default layers, dropdown options |
+| `app/src/shared/noise/perlin.ts`, `simplex.ts`, `value.ts`, `cellular.ts`, `sample.ts` | Base noise functions; `sampleNoise` dispatches by type |
+| `app/src/shared/noise/shaping.ts` | Shaping operations and their parameter labels/ranges |
+| `app/src/shared/noise/generateHeightmap.ts` | Per-layer sampling, weighted combine, height-field generation |
+| `app/src/weeks/week03/hydraulicErosion.ts` | `stepHydraulicErosion`: rain → flow → erode/deposit → evaporate |
+| `app/src/weeks/week03/NoiseTerrainWeek.tsx` | Page: settings state, world offset (WASD), simulation buffers and animation loop, view switching |
+| `app/src/weeks/week03/TerrainCanvas.tsx` | 3D scene (light, shadow, overlays) |
+| `app/src/weeks/week03/TerrainPanels.tsx`, `terrainConfig.ts` | Environment and Appearance panel sections, fog defaults |
+| `app/src/weeks/week03/NoiseExercise.tsx` | Terrain mesh: height field → plane vertices |
+| `app/src/weeks/week03/terrainContours.ts` | Shader patch: contour lines and Elevation colour mode |
+| `app/src/weeks/week03/WaterSurface.tsx`, `RainStreaks.tsx` | Render-only water surface and rain from the simulation buffers |
+| `app/src/weeks/week03/AppChrome.tsx`, `SimulationControls.tsx`, `NoiseMapPreview.tsx` | Field/layer panel, erosion panel, 2D field inset |
+| `app/src/weeks/week03/noiseExplanations.ts` | Text for the per-layer Explanation disclosure and control tips |
 
-You can think of it as:
+### Key Logic
 
-```text
-resolution = how many measurement points we take
+**`combineLayerValues`**: the whole blend. Order-independent by construction.
+
+```ts
+for (let i = 0; i < layers.length; i++) {
+  if (!layers[i].enabled) continue
+  const weight = Math.max(0, layers[i].weight)
+  sum += values[i] * weight          // values[i] = shaped noise × amplitude
+  totalWeight += weight
+}
+return totalWeight === 0 ? 0 : clampUnit(sum / totalWeight)
 ```
 
-### Frequency / scale
+**Flow in `stepHydraulicErosion`**: outflow is capped by a levelling term so neighbouring water surfaces settle instead of sloshing, then split by drop:
 
-Frequency controls how quickly the noise changes across space.
-
-| Lower frequency | Higher frequency |
-|---|---|
-| Bigger landforms | Smaller repeated features |
-| Broad hills | Finer texture |
-| More zoomed out | More zoomed in |
-
-Conceptually:
-
-```text
-sample at (x * frequency, y * frequency)
+```ts
+const flow =
+  Math.min(cellWater * params.flowRate, (maxDrop / WATER_DEPTH_SCALE) * LEVELING) *
+  WATER_PACE
+// … for each lower neighbour k:
+waterDelta[j] += flow * (drops[k] / totalDrop)
+sedimentDelta[j] += sedimentMove * (drops[k] / totalDrop)
 ```
 
-### Amplitude / height
+**Erode vs. deposit**: capacity uses water that actually moved this step:
 
-Amplitude scales how strongly one layer affects the final terrain height.
-
-| Lower amplitude | Higher amplitude |
-|---|---|
-| Subtle contribution | Strong contribution |
-| Gentle height changes | Taller hills / deeper valleys |
-
-Simple idea:
-
-```text
-layerValue = shapedNoise * amplitude
+```ts
+const movingWater = outflow[i] / (FLOW_PASSES * WATER_PACE)
+const capacity = surfaceSlope * movingWater * params.sedimentCapacity
+if (sediment[i] < capacity) {
+  erode = Math.min(erosionRate * (capacity - sediment[i]), terrainSlope * erosionRate) * TERRAIN_RATE
+} else {
+  deposit = depositionRate * (sediment[i] - capacity) * TERRAIN_RATE
+}
 ```
 
-### Weight
+**State ownership (`NoiseTerrainWeek.tsx`)**: the buffers live in refs and are stepped inside `requestAnimationFrame`; each frame copies them into React state for rendering. Any change to the generated field (layer edit, resolution, WASD) resets the buffers and stops the simulation.
 
-Weight controls how strongly a layer contributes to the final blend compared to
-the other layers.
+### Parameters / Controls
 
-| Lower weight | Higher weight |
-|---|---|
-| Layer matters less | Layer dominates more |
-| Good for subtle detail | Good for primary structure |
+**Terrain panel**
 
-Simple idea:
-
-```text
-final = weighted average of active layers
-```
-
-Weight is not the same as amplitude:
-
-- **amplitude** changes the size of the layer’s height values
-- **weight** changes how much that layer counts in the final mix
-
----
-
-## Shaping Operations
-
-Shaping transforms the raw noise value after sampling.
-
-Start with:
-
-```text
-n = noise(x, y)
-```
-
-Then reshape it into a different kind of terrain signal.
-
-| Shaping | What it does | Typical use |
+| Parameter | Default / Range | Effect |
 |---|---|---|
-| **None** | Keeps raw noise | Baseline terrain |
-| **Ridged** | Turns valleys into sharp crests | Mountain chains |
-| **Billow** | Folds negative values upward | Puffy rolling hills |
-| **Turbulence** | Adds absolute multi-scale roughness | Crumpled chaotic detail |
-| **Terracing** | Quantizes heights into bands | Step-like topography |
-| **Power Curve** | Pushes values toward peaks or midtones | Sharpening or softening contrast |
-| **Domain Warping** | Distorts sample coordinates | Twisted, swirled forms |
+| Grid resolution | 64 · 16–128 | Samples per side: map detail, mesh density, simulation cost |
+| Noise type | per layer | Perlin / Simplex / Value / Cellular source |
+| Frequency / scale | 0.5–12 | Size of features (cells across the window) |
+| Amplitude | 0–3 | Strength of the layer's values before averaging |
+| Blend / weight | 0–3 | Share of the weighted average |
+| Shaping + param | per shaping | Octaves 1–6, steps 2–16, exponent 0.2–4, warp 0–1.5 |
+| Contours / Wireframe (F) | on / off | Viewport overlays (rendering only) |
+| Color mode | Neutral · Elevation | Terrain view only; Elevation maps height to a muted blue→gray ramp |
+| Fog | off | Rendering only |
 
-### None
+**Default layers**: a regional tilt, a warped landform, secondary ridges, faint texture:
 
-Use the sampled value directly.
+| Layer | Noise · shaping | Freq | Amp | Weight |
+|---|---|---|---|---|
+| Regional tilt | Perlin · none | 0.5 | 1.2 | 0.3 |
+| Landform | Simplex · domain warp 0.7 | 1 | 1.5 | 1 |
+| Ridges | Perlin · ridged | 2.4 | 1.05 | 0.4 |
+| Detail | Simplex · none | 7 | 0.6 | 0.15 |
 
-```text
-h = n(x, y)
-```
+**Simulation panel** (Erosion + Environment)
 
-### Ridged
+| Parameter | Default / Range | Effect |
+|---|---|---|
+| Rain | 0.012 · 0–0.05 | Water added to every cell per step; also sets rain-streak density |
+| Evaporation | 0.03 · 0.005–0.15 | Fraction of water removed per step: shallower, shorter-lived water |
+| Erosion rate | 0.35 · 0.05–1 | How fast under-capacity water cuts terrain |
+| Deposition rate | 0.35 · 0.05–1 | How fast over-capacity water drops sediment |
+| Sediment capacity | 4 · 0.5–12 | Capacity multiplier: deeper channels |
+| Flow rate | 0.4 · 0.1–0.9 | Share of a cell's water that can move per flow pass |
+| Steps per frame | 2 · 1–6 | Simulation speed vs. browser load |
 
-Take the absolute value, invert it, then square it so the crests feel sharper.
-
-```text
-h = (1 - |n|)^2 * 2 - 1
-```
-
-Visual feel:
-
-- narrow crests
-- valley-to-ridge conversion
-- mountain-like structure
-
-### Billow
-
-Fold negative values upward so both halves of the wave become rounded hills.
-
-```text
-h = |n| * 2 - 1
-```
-
-Visual feel:
-
-- soft puffy forms
-- fewer deep cuts
-- rounded repeated mounds
-
-### Turbulence
-
-Sum several absolute-noise samples at increasing frequency and decreasing
-strength.
-
-```text
-h = sum( |n(x * 2^i, y * 2^i)| * 0.5^i )
-```
-
-In this exercise, the extra parameter is **octaves**:
-
-- fewer octaves = simpler pattern
-- more octaves = busier, rougher pattern
-
-### Terracing
-
-Snap the height into discrete bands.
-
-```text
-h = floor(((n + 1) / 2) * steps) / steps * 2 - 1
-```
-
-The extra parameter is **steps**:
-
-- fewer steps = chunkier large terraces
-- more steps = thinner terrace bands
-
-### Power Curve
-
-Raise the magnitude of the value to a power while keeping the sign.
-
-```text
-h = sign(n) * |n|^p
-```
-
-The extra parameter is **exponent**:
-
-- `p > 1` sharpens peaks and reduces mid-level values
-- `0 < p < 1` fills in the middle and feels softer
-
-### Domain Warping
-
-Use noise to bend the sample coordinates before sampling again.
-
-```text
-h = n(x + s * n(x, y), y + s * n(x + 5.2, y + 1.3))
-```
-
-The extra parameter is **warp strength**:
-
-- lower = slight bending
-- higher = stronger twisting and distortion
-
-Domain warping is useful when the base pattern feels too regular and you want
-it to look less obviously generated from a clean grid.
+**Internal constants** (`hydraulicErosion.ts`): `FLOW_PASSES = 4`, `WATER_PACE = 0.1`, `TERRAIN_RATE = 0.006`, `WATER_DEPTH_SCALE = 0.1`, `LEVELING = 0.25`.
 
 ---
 
-## The Layer System
+## Experiments & Observations
 
-One of the biggest ideas in this exercise is that terrain usually becomes more
-interesting when it is built from **multiple simple layers** instead of one
-complicated formula.
+Numbers below were measured with headless scripts running the real noise and erosion code at default settings; visual judgments were made in the browser.
 
-Each layer in this implementation has:
+| Tried | Expected | Observed | Why / Next |
+|---|---|---|---|
+| First erosion version (steepest-neighbour flow on bare terrain) | Water carves channels over time | Relief dropped to **10 % after 60 s**; water piled into single-cell pits (deepest > 100× average): scattered cyan patches | Flow ignored water surface, and erosion ran at full rate every step |
+| Rewrite: surface-based flow to all lower neighbours, 4 flow passes, `TERRAIN_RATE`, capacity from moving water, edge drainage | Connected water, recognisable terrain | **87 % relief after 60 s** (correlation 0.95 with the generated field); water settles into ~10–14 connected pools/streams | Water and terrain now run on separate clocks |
+| Water pacing | Rain → streams → pools as a readable sequence | Pools appeared in ~0.25 s, full size in ~1 s | Scaled rain, flow and evaporation together by `WATER_PACE = 0.1`: streams at 1–2 s, pools grow 3–5 s, settled by ~8 s; **same final pattern** |
+| Original default: one Perlin layer, frequency 4 | Natural terrain | Evenly spaced bumps; a pool in every hollow (see Before below) | Replaced with a hierarchy: domain-warped Simplex landform + lighter ridged Perlin + faint detail. Water collects in valley lakes fed by streams |
+| Base amplitude 1.6 | More relief | Flat plateaus clipped at ±1 at **21 of 25** world offsets | Lowered to 1.25 (0 of 25) before the tilt layer was added |
+| Ridged Perlin as a main layer | Mountain ridges | Straight, grid-aligned creases | This Perlin uses only 4 diagonal gradients, so ridges stay a secondary layer |
+| One dominant-hill default (billow + warped Simplex) | Clear focal rise | Too smooth and flat, less local relief | Reverted; added a low-frequency, low-weight tilt layer and scaled the other amplitudes ×~1.2 to offset weighted-average dilution |
+| Reordering layers | Different terrain | No change possible | Weighted average is commutative (see How It Works) |
+| Contour overlay; render-only irregular boundary mask | Easier height reading; terrain as a bounded fragment | Contours kept (on by default); mask reverted | The terrain still renders as a square sheet |
 
-- its own **noise type**
-- its own **frequency**
-- its own **amplitude**
-- its own **shaping**
-- an optional **shaping parameter**
-- an **enabled / disabled** switch
-- a **weight**
+### Before / after applying the Style Guide
 
-### Why layers matter
-
-Different layers can play different roles:
-
-- one low-frequency layer for the broad shape
-- one medium-frequency layer for hills
-- one high-frequency layer for surface variation
-- one cellular layer for cracks or broken regions
-
-That gives you a useful visual stack:
-
-```text
-macro form
-  + medium detail
-  + small detail
-  + optional special pattern
-  = final terrain
-```
-
-### Blending in this exercise
-
-The app samples all enabled layers, then blends them into one final result.
-
-Conceptually:
-
-```text
-finalHeight = weighted average of enabled layer values
-```
-
-A layer with:
-
-- **high amplitude** produces stronger height values
-- **high weight** contributes more strongly to the blend
-- **disabled** contributes nothing
-
-This keeps the system easy to reason about:
-
-- amplitude changes the *shape intensity* of the layer
-- weight changes the *importance* of the layer relative to others
-
-### A simple example
-
-Imagine three layers:
-
-| Layer | Role |
+| Before | After |
 |---|---|
-| Perlin, low frequency | Large continents / broad hills |
-| Simplex, medium frequency | Secondary terrain variation |
-| Cellular, low weight | Subtle cracking or breakup |
+| ![Earlier 3D Terrain tab: elevation-tinted terrain on a navy background, boxed panels, fog controls bottom-left](../images/week03/terrain-3d.png) | ![Current Terrain view: off-white matte terrain with contours on black, Field map inset, thin-rule typography](../images/week03/terrain-view-new.png) |
 
-The final terrain is not “one noise type.” It is the conversation between those
-layers.
+- **Before:** biome-style elevation tint, soft navy background, boxed controls, and separate 2D Map / Simulation Map / 3D Terrain tabs.
+- **After:** world first on a black field, and form read through a single key light and shadow on a neutral matte surface. Contours carry height information, and the 2D map is a small Field map inside the Terrain view. Colour only appears where it means something (cyan water, red/blue axis labels).
+- **Not only styling:** the Before also uses the original default terrain (one Perlin layer at frequency 4, evenly spaced hills with no hierarchy). The After uses the current four-layer default.
 
----
+### Current behaviour worth knowing
 
-## Hydraulic Erosion (Simulation)
-
-Noise generates the **initial** height field. Hydraulic erosion is a separate
-**simulation** that changes that field over time: rain adds water, water flows
-downhill, steep flow erodes and carries sediment, flatter areas deposit it, and
-water evaporates. The Simulation Map can show height, water, or sediment so you
-can inspect those buffers while the process runs.
-
-![Simulation map with hydraulic erosion controls](../images/week03/simulation-map.png)
-
-*Simulation Map: Start / Stop / Reset and field modes (Height / Water / Sediment) for the live erosion buffers.*
+- **Terrain view after simulating:** the 3D mesh shows the *simulated* height, while the Field map shows the *generated* field, so after erosion they can differ.
+- **The simulation keeps running** when you switch to Terrain (the Simulation tab shows a live dot); water and rain are just not drawn there.
+- **Any terrain edit resets erosion**, including a single WASD step.
 
 ---
 
-## What This Exercise Teaches
+## Takeaways
 
-This exercise is not just about making a bumpy plane. It teaches a reusable
-workflow:
-
-1. sample coordinates across a grid
-2. turn coordinates into noise values
-3. shape those values into a desired terrain style
-4. combine multiple layers
-5. reuse the same heightmap in both 2D and 3D
-
-That workflow scales well. Today it drives a grayscale map and a flat terrain
-plane. Later, the same ideas can drive:
-
-- sphere displacement
-- biome masks
-- coastlines
-- erosion-style post-processing
-- shader-based coloring
-
----
-
-## Key Takeaways
-
-- Procedural noise turns coordinates into terrain-like values.
-- A **heightmap** is the shared data structure between 2D preview and 3D terrain.
-- Different noise types have different visual personalities.
-- Frequency, amplitude, resolution, and weight each control a different aspect
-  of the result.
-- Shaping operations are often just as important as the base noise itself.
-- Rich terrain usually comes from **layering simple signals**, not from one
-  perfect formula.
-
----
-
-## Try It
-
-1. Start with one Perlin layer and `None` shaping.
-2. Switch between **2D Map** and **3D Terrain** and notice that the same
-   structure appears in both views.
-3. Increase frequency and watch large hills break into smaller detail.
-4. Try **Ridged** and **Billow** on the same base noise and compare the landform
-   personality.
-5. Add a second layer with a different noise type and a lower weight.
-6. Disable and re-enable that layer to see exactly what it contributes.
-7. Try **Terracing** or **Domain Warping** to see how much shaping can change
-   the same underlying noise.
-
-<!-- Record observations or screenshots here after class. -->
-
----
-
-## What I Learned
-
-<!-- Write this yourself after completing the exercise. What looked natural? What felt too artificial? Which noise type or shaping operation surprised you? -->
+- **Now I understand:** a height field is just shared data. Generation, display and simulation are separate readers/writers of the same array. Amplitude and weight look similar but differ: weight renormalises, so every layer affects every other layer's share.
+- **Surprised by:** how much *pacing* matters in a simulation. The water model was right long before it was readable; separating water time from terrain time fixed the reading without changing the end state. Also, clamping to ±1 quietly flattens peaks when amplitudes get greedy.
+- **Limitations:**
+  - Layers are order-independent and have no per-layer seed or offset: two layers with the same type and frequency sample identical noise.
+  - Erosion is a simple 4-neighbour grid model on the CPU main thread; cost grows with resolution² × steps per frame.
+  - Water/Sediment data views are relative to the current maximum, not absolute.
+  - Rain is uniform; the terrain window is a square sheet.
+- **Next:**
+  - Order-dependent layer operations (masks, blend modes, warping one layer by another), where reordering would finally mean something.
+  - Per-layer seed/offset.
+  - Moving the simulation off the main thread.
+  - Erosion work is paused here; the tuning knobs are the internal constants above.
 
 ---
 
 ## References
 
-**This repository**
-- `app/src/noise/types.ts`
-- `app/src/noise/generateHeightmap.ts`
-- `app/src/noise/explanations.ts`
-- `app/src/ui/AppChrome.tsx`
-- `app/src/ui/NoiseMapPreview.tsx`
-- `app/src/scene/exercises/NoiseExercise.tsx`
+### Course
 
-**External**
-- [The Book of Shaders - Noise](https://thebookofshaders.com/11/)
-- [The Book of Shaders - fBM](https://thebookofshaders.com/13/)
-- [Red Blob Games - Noise Functions and Map Generation](https://www.redblobgames.com/maps/terrain-from-noise/)
+- [Week 03 lecture / material]: procedural noise, height fields, terrain
+
+### External
+
+- [The Book of Shaders: Noise](https://thebookofshaders.com/11/): gradient vs. value noise intuition
+- [The Book of Shaders: fBM](https://thebookofshaders.com/13/): octaves, turbulence, ridged and domain-warped variants
+- [Red Blob Games: Making maps with noise](https://www.redblobgames.com/maps/terrain-from-noise/): frequency, amplitude, mixing layers into terrain
+
+<!-- Add the erosion reference(s) actually used, if any. -->

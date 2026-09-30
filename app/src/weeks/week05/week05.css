@@ -1,0 +1,87 @@
+/*
+ * Week 05 — rules specific to the Shaders exercise. The shared instrument
+ * layer lives in ui/system.css (root class `ui-system`).
+ */
+
+/* Study selector: six options as a 2 × 3 grid of the shared segmented control. */
+.week05 .study-select .segmented {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  padding: 0 0 1px 1px;
+}
+
+.week05 .study-select .segmented button,
+.week05 .study-select .segmented button:first-child {
+  margin: 0 0 -1px -1px;
+  text-align: left;
+}
+
+/* Tight groups inside a panel section. */
+.week05 .study-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.week05 .study-block .explain-eq,
+.week05 .study-block .explain-text {
+  margin: 0;
+}
+
+/* Vertex → Raster → Fragment, with the stage the rule runs in filled. */
+.week05 .stage-track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.week05 .stage-track .stage {
+  padding: 2px 6px;
+  border: 1px solid var(--rule);
+}
+
+.week05 .stage-track .stage.is-active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #111111;
+}
+
+.week05 .input-name {
+  margin: 4px 0 0;
+  color: var(--ui-title);
+  font-size: var(--text-body);
+}
+
+.week05 .output-writes {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+}
+
+.week05 .legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.week05 .legend-bar {
+  height: 8px;
+  border: 1px solid var(--rule);
+}
+
+.week05 .legend-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+}

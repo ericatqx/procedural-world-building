@@ -1,4 +1,4 @@
-# Class 02: Install and Run React (for complete beginners)
+# Week 02: Install and Run React (for complete beginners)
 
 This tutorial assumes you have **never used React** and are **new to the command line**. By the end you will have a small React app inside this class project, running in your browser.
 

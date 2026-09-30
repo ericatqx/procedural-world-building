@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "procedural-world-buildin-a9bf6"
-  }
+  },
+  "targets": {
+    "procedural-world-buildin-a9bf6": {
+      "hosting": {
+        "lab": [
+          "procedural-world-lab"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

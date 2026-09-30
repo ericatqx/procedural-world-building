@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Each signed-in user reaches only their own subtree:
+//   users/{uid}/pages/{page}/snapshots/{id}            one Save: summary + small state
+//   users/{uid}/pages/{page}/snapshots/{id}/payload/main  its heavy arrays, if any
+//   users/{uid}/configs/{id}                           old Week 04 Cloud config, read only
+// Saves are never overwritten: a snapshot is created or deleted, not updated.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/pages/{page}/snapshots/{snapshotId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && page in ['week03', 'week04', 'week05', 'project']
+        && request.resource.data.page == page
+        && request.resource.data.schema is int
+        && request.resource.data.summary is string
+        && request.resource.data.createdAt == request.time;
+
+      match /payload/{payloadId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && payloadId == 'main';
+      }
+    }
+
+    match /users/{userId}/configs/{configId} {
+      allow read: if isOwner(userId);
+    }
+  }
+}

@@ -1,4 +1,4 @@
-# Class 02: Git and GitHub for Beginners
+# Week 01: Git and GitHub for Beginners
 
 This tutorial is for people who have never used Git or GitHub. By the end, you should be able to save your work as **commits**, put a project on **GitHub**, and share changes with others.
 

@@ -1,13 +1,56 @@
 :root {
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Display face, for major exercise / project titles only. */
+  --heading: 'Unbounded Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
-  --ui-text: #d5dbe8;
-  --ui-muted: #9aa3b5;
-  --ui-title: #f4f6fb;
-  --panel-bg: rgba(16, 19, 28, 0.82);
-  --panel-border: rgba(255, 255, 255, 0.1);
-  --accent: #7eb8ff;
+
+  /*
+   * Type scale. Display is for major titles only (Unbounded). Sans carries
+   * interface, controls, buttons and prose; mono carries procedural data,
+   * parameters, readouts, equations, states and technical annotations.
+   */
+  --text-display: clamp(1.25rem, 1.8vw, 1.6rem);
+  --text-title: 1.08rem;
+  /* Prose and primary labels: About and LEARN text, row titles, view tabs. */
+  --text-body: 0.78rem;
+  /* Controls, buttons, secondary prose: control labels, segments, notes, tooltips. */
+  --text-ui: 0.72rem;
+  /* Small caps UI (navigation, section titles, text buttons) and mono values and readouts. */
+  --text-label: 0.66rem;
+  /* Mono annotations: panel and inset headers, captions, keys, summaries, states. */
+  --text-micro: 0.6rem;
+
+  /* Letter spacing. Uppercase text uses caps, or caps-wide for headers that name a region. */
+  --track-display: -0.01em;
+  --track-data: 0.04em;
+  --track-caps: 0.08em;
+  --track-caps-wide: 0.14em;
+
+  /* Layout */
+  --edge: 24px;
+  --header-h: 44px;
+  --panel-w: 248px;
+
+  /* Neutral field */
+  --field: #151515;
+  --ink: #e9e6df;
+  --ui-title: #e9e6df;
+  --ui-text: #d9d6cf;
+  --ui-muted: rgba(233, 230, 223, 0.56);
+  --ui-faint: rgba(233, 230, 223, 0.3);
+  --rule: rgba(233, 230, 223, 0.14);
+  --rule-strong: rgba(233, 230, 223, 0.32);
+  --panel-bg: rgba(12, 12, 12, 0.62);
+  --panel-border: var(--rule);
+  --accent: var(--ink);
+
+  /* Semantic colour — only where it carries meaning */
+  --signal: #ff4a1c;
+  --water: #64dcff;
+  --sediment: #f0ae56;
+  --axis-x: #ff5c5c;
+  --axis-y: #6ee07a;
+  --axis-z: #5c8cff;
 
   font-family: var(--sans);
   font-synthesis: none;
@@ -29,7 +72,7 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0e1118;
+  background: var(--field);
 }
 
 body {

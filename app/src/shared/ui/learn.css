@@ -1,0 +1,278 @@
+/*
+ * LEARN mode (learn.tsx). Uses the shared tokens, so render inside a
+ * `.ui-system` root. The layer never takes pointer events: the exercise stays
+ * usable underneath, only the card is interactive.
+ */
+
+.ui-system {
+  /* The one colour LEARN adds, an annotation red: outlines, progress, cue labels. */
+  --learn-accent: #ff3b30;
+  --learn-dim: rgba(0, 0, 0, 0.66);
+}
+
+.ui-system .learn-toggle[aria-pressed='true'] {
+  color: var(--learn-accent);
+  border-bottom-style: solid;
+  border-bottom-color: var(--learn-accent);
+}
+
+.ui-system .learn-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.ui-system .learn-dim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--learn-dim);
+}
+
+/* A lit region: undimmed, outlined in the accent, with a brief pulse on arrival. */
+.ui-system .learn-focus {
+  position: absolute;
+  border: 1px solid var(--learn-accent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--learn-accent) 22%, transparent);
+  animation: learn-focus-in 900ms ease-out;
+}
+
+@keyframes learn-focus-in {
+  from {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--learn-accent) 30%, transparent);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+.ui-system .learn-card {
+  position: absolute;
+  top: calc(var(--header-h) + var(--edge) + 44px);
+  left: var(--edge);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(360px, calc(100% - var(--panel-w) - 3 * var(--edge)));
+  max-height: calc(100% - var(--header-h) - 3 * var(--edge) - 88px);
+  padding: 14px 18px 14px;
+  border: 1px solid var(--rule);
+  border-top: 1px solid var(--learn-accent);
+  background: rgba(10, 10, 10, 0.94);
+  pointer-events: auto;
+}
+
+/* Beside the panel, when the default spot would cover the step's target. */
+.ui-system .learn-card.is-end {
+  left: auto;
+  right: calc(var(--panel-w) + 2 * var(--edge));
+}
+
+.ui-system .learn-card > :not(.learn-card-body) {
+  flex: none;
+}
+
+.ui-system .learn-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+}
+
+.ui-system .learn-card-count {
+  color: var(--learn-accent);
+}
+
+/* Only the content scrolls on short screens; progress and buttons stay put. */
+.ui-system .learn-card-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ui-system .learn-card-title {
+  margin: 0;
+  color: var(--ui-title);
+  font-family: var(--sans);
+  font-size: var(--text-title);
+  font-weight: 500;
+  letter-spacing: var(--track-display);
+  line-height: 1.25;
+}
+
+.ui-system .learn-card-text {
+  margin: 0;
+  color: var(--ui-text);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+.ui-system .learn-cue {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 8px;
+  margin: 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--rule);
+  color: var(--ui-text);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+.ui-system .learn-cue-label {
+  color: var(--learn-accent);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps-wide);
+  line-height: 1.9;
+  text-transform: uppercase;
+}
+
+.ui-system .learn-card-progress {
+  display: flex;
+  gap: 3px;
+}
+
+.ui-system .learn-card-progress span {
+  flex: 1;
+  height: 2px;
+  background: var(--rule);
+}
+
+.ui-system .learn-card-progress span.is-done {
+  background: var(--learn-accent);
+}
+
+.ui-system .learn-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ui-system .learn-card-nav {
+  display: flex;
+}
+
+.ui-system .learn-button {
+  margin: 0 0 0 -1px;
+  padding: 5px 12px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-label);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ui-system .learn-button:not(:disabled):hover {
+  color: var(--ui-title);
+}
+
+.ui-system .learn-button.is-primary {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #111111;
+}
+
+.ui-system .learn-button.is-primary:hover {
+  color: #000000;
+}
+
+.ui-system .learn-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/*
+ * Step figures: small line diagrams drawn in ink, with the accent for the one
+ * thing the step is about. Stroke widths stay 1px at any size.
+ */
+.ui-system .learn-figure {
+  margin: 2px 0;
+  padding: 16px 0 12px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.ui-system .learn-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ui-system .learn-figure * {
+  vector-effect: non-scaling-stroke;
+}
+
+.ui-system .learn-figure .lf-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+
+.ui-system .lf-faint {
+  fill: none;
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+}
+
+.ui-system .lf-accent {
+  fill: none;
+  stroke: var(--learn-accent);
+  stroke-width: 1.25;
+}
+
+/* Water keeps its semantic colour from the exercises. */
+.ui-system .lf-water {
+  fill: color-mix(in srgb, var(--water) 55%, transparent);
+  stroke: none;
+}
+
+.ui-system .lf-dot {
+  fill: var(--learn-accent);
+}
+
+.ui-system .lf-fill {
+  fill: var(--ink);
+  stroke: none;
+}
+
+/* Opaque, so overlapping shapes read as one region. */
+.ui-system .lf-solid {
+  fill: color-mix(in srgb, var(--ink) 34%, #0a0a0a);
+  stroke: none;
+}
+
+.ui-system .lf-cell {
+  fill: color-mix(in srgb, var(--ink) 16%, transparent);
+  stroke: var(--rule-strong);
+  stroke-width: 0.5;
+}
+
+.ui-system .lf-label {
+  fill: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.ui-system .lf-label.is-accent {
+  fill: var(--learn-accent);
+}
