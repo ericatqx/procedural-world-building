@@ -1,7 +1,7 @@
 # Shadow Ecology — Planning
 
 > Living document and current source of truth for the concept and the prototype. Working directions, not final decisions.
-> Related: [Style Guide](../../STYLE-GUIDE.md) · [Backlog](backlog.md)
+> Related: [Visual Direction](shadow-ecology-visual-direction.md) · [Style Guide](../../STYLE-GUIDE.md) · [Backlog](backlog.md)
 
 | | |
 |---|---|
@@ -70,6 +70,15 @@ The ecology is one world state, shown in several representations. Each is a diff
   - **Inversion with an internal logic:** familiar relationships reversed (architecture adapting to nature, organisms supporting the environment), always with a rule behind them, not just visual strangeness.
   - **Structures have reasons:** location, form and relationships emerge from world conditions (terrain / water / light → sites → growth → paths).
   - **Map ↔ world:** the same systems read as a 2D composition and a 3D world.
+
+---
+
+## Visual Direction
+
+What the world could look and feel like: architecture, organism, geology and scientific model blurring into one formal language, with organisms derived from the same procedural language as the landscape and structures. Exploratory research, not Prototype 0.1 functionality.
+
+- Concept visuals, world vocabulary, creature explorations and Are.na search terms: [Shadow Ecology — Visual Direction](shadow-ecology-visual-direction.md)
+- Execution and design-system rules: [Style Guide](../../STYLE-GUIDE.md)
 
 ---
 
