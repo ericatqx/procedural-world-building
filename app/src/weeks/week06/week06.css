@@ -1,0 +1,206 @@
+/*
+ * Week 06 — rules specific to the Spatial Systems exercise. The shared
+ * instrument layer lives in ui/system.css (root class `ui-system`).
+ */
+
+/* Subtabs: numbered like the panel sections; unbuilt studies stay visible but inert. */
+.week06 .view-tabs .tab-index {
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+}
+
+.week06 .view-tabs button[aria-selected='true'] .tab-index {
+  color: var(--ui-muted);
+}
+
+.week06 .view-tabs button:disabled,
+.week06 .view-tabs button:disabled:hover {
+  color: var(--ui-faint);
+  cursor: default;
+}
+
+/* Field selector: six options as a 3 × 2 grid of the shared segmented control. */
+.week06 .field-select .segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 0 0 1px 1px;
+}
+
+.week06 .field-select .segmented button,
+.week06 .field-select .segmented button:first-child {
+  margin: 0 0 -1px -1px;
+}
+
+/* Tight groups inside a panel section. */
+.week06 .study-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.week06 .study-block .explain-eq,
+.week06 .study-block .explain-text {
+  margin: 0;
+}
+
+.week06 .explain-eq.is-quiet {
+  color: var(--ui-muted);
+}
+
+.week06 .row-foot {
+  gap: 14px;
+}
+
+/* Play / Reset / speed on one line, as in the Project's time transport. */
+.week06 .generation-transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.week06 .generation-transport .segmented {
+  flex: 1;
+}
+
+.week06 .generation-transport .segmented button {
+  padding: 4px 6px;
+}
+
+.week06 .legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.week06 .legend-bar {
+  height: 8px;
+  border: 1px solid var(--rule);
+}
+
+.week06 .legend-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Key to the analysis marks, each drawn like the mark on the ground. */
+.week06 .mark-key {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ui-muted);
+  font-size: var(--text-ui);
+}
+
+.week06 .mark-key li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.week06 .mark-key .mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 0 2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.week06 .mark-key .mark.is-ring {
+  border: 1.5px solid currentColor;
+  background: transparent;
+}
+
+.week06 .mark-key .mark.is-area {
+  border-radius: 0;
+  outline: 1px solid var(--rule);
+}
+
+.week06 .mark-key .mark.is-small {
+  width: 5px;
+  height: 5px;
+  margin: 0 3.5px;
+}
+
+.week06 .mark-key .mark.is-line {
+  width: 14px;
+  height: 0;
+  margin: 0;
+  border-top: 2px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+}
+
+.week06 .mark-key .mark.is-line.is-dashed {
+  border-top-style: dashed;
+}
+
+.week06 .mark-key .mark.is-stream {
+  width: 14px;
+  height: 5px;
+  margin: 0;
+  border-block: 1px solid #a9bbff;
+  border-radius: 0;
+  background: #3d63ff;
+}
+
+.week06 .mark-key .mark.is-vein {
+  width: 14px;
+  height: 5px;
+  margin: 0;
+  border-radius: 0;
+  clip-path: polygon(0 0, 100% 45%, 100% 55%, 0 100%);
+}
+
+/* Fields: the four particle presets side by side in How it works; the current one in full text colour. */
+.week06 .preset-table {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, auto);
+  gap: 2px 12px;
+  margin: 0;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.week06 .preset-table div {
+  display: contents;
+}
+
+.week06 .preset-table dt,
+.week06 .preset-table dd {
+  margin: 0;
+}
+
+.week06 .preset-table dd {
+  text-align: right;
+}
+
+.week06 .preset-table > dd {
+  color: var(--ui-faint);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.week06 .preset-table .is-current > * {
+  color: var(--ui-text);
+}
+
+.week06 .mark-key .mark.is-node {
+  width: 9px;
+  height: 9px;
+  margin: 0 2.5px;
+  border: 2px solid #1a1a19;
+  background: #f4f1ea;
+}

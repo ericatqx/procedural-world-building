@@ -1,6 +1,6 @@
 # Procedural World Building
 
-A study notebook for a semester of procedural world building in the browser: weekly exercises in Three.js, noise, voxels and shaders, leading into one main project, **Shadow Ecology**.
+A study notebook for a semester of procedural world building in the browser: weekly exercises in Three.js, noise, voxels, shaders and spatial systems, leading into one main project, **Shadow Ecology**.
 
 **Live Demo:** [procedural-world-lab.web.app](https://procedural-world-lab.web.app)
 
@@ -24,15 +24,16 @@ One page per week in the app, and one tutorial per week in [`docs/tutorials/`](d
 | 03 | Procedural Terrain | Value, Perlin, simplex and cellular noise · octaves · ridged, billow, terracing and domain-warp shaping · heightmaps · hydraulic erosion and water | [Noise and Terrain](docs/tutorials/03-procedural-noise-and-terrain.md) |
 | 04 | Voxels & Firebase | Density fields · CSG (union, subtract, intersect) · Blocks vs Marching Cubes · chunks · Google sign-in, Firestore snapshots, Hosting | [Voxels](docs/tutorials/04-01-voxels.md) · [Firebase](docs/tutorials/04-02-firebase.md) |
 | 05 | Shaders | Vertex and fragment stages · uniforms, attributes and varyings · fields and terms on three specimens · displacement | [Shaders](docs/tutorials/05-shaders.md) |
+| 06 | Spatial Systems | Seeded candidates, valid ground and weighted draws · Random, Noise and Environment weights · spanner networks, downhill flow and branching growth · terrain-steered wind field, particles and exposure | [Spatial Systems](docs/tutorials/06-spatial-systems.md) |
 
 Before Week 02: [Git and GitHub for Beginners](docs/tutorials/01-git-and-github.md) (Week 01). New notes start from the [tutorial template](docs/tutorials/_template.md).
 
 ### Selected Studies
 
-| Week 03 — Erosion | Week 04 — Voxels | Week 05 — Shaders |
-| --- | --- | --- |
-| [![Terrain after hydraulic erosion, with cyan water pooled in basins and valleys](docs/images/week03/simulation-water-new.png)](docs/tutorials/03-procedural-noise-and-terrain.md) | [![Voxel ruin massing built from CSG steps, with chunk lines](docs/images/week04/voxel-view-new.png)](docs/tutorials/04-01-voxels.md) | [![Noise displacement on the Structure specimen in the vertex stage](docs/images/week05/displacement-structure.png)](docs/tutorials/05-shaders.md) |
-| Rain carves the heightmap; water settles where it drains. | A ruin assembled from density fields and CSG steps. | A vertex shader pushes the surface along noise. |
+| Week 03 — Erosion | Week 04 — Voxels | Week 05 — Shaders | Week 06 — Spatial Systems |
+| --- | --- | --- | --- |
+| [![Terrain after hydraulic erosion, with cyan water pooled in basins and valleys](docs/images/week03/simulation-water-new.png)](docs/tutorials/03-procedural-noise-and-terrain.md) | [![Voxel ruin massing built from CSG steps, with chunk lines](docs/images/week04/voxel-view-new.png)](docs/tutorials/04-01-voxels.md) | [![Noise displacement on the Structure specimen in the vertex stage](docs/images/week05/displacement-structure.png)](docs/tutorials/05-shaders.md) | [![Structures, vegetation and colonies distributed over the study terrain by the Environment method](docs/images/week06/distribution-environment-world.png)](docs/tutorials/06-spatial-systems.md) |
+| Rain carves the heightmap; water settles where it drains. | A ruin assembled from density fields and CSG steps. | A vertex shader pushes the surface along noise. | Three layers scattered by the ground each one prefers. |
 
 ---
 
@@ -70,11 +71,11 @@ The simulation is deterministic, with time jumps of 1, 10, 50 and 100 days.
 
 ```text
 app/                   Vite + React + TypeScript + Three.js (React Three Fiber)
-  src/weeks/week02–05  Weekly exercise pages
+  src/weeks/week02–06  Weekly exercise pages
   src/project/         Shadow Ecology prototype
   src/shared/          Noise, shaders, snapshot persistence, UI system
 docs/
-  tutorials/           Weekly study notes (Week 01–05) and template
+  tutorials/           Weekly study notes (Week 01–06) and template
   analysis/            Experiments, observations and critique
   planning/            Shadow Ecology plan and early backlog
   images/              Screenshots per week and for the project

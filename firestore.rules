@@ -14,7 +14,7 @@ service cloud.firestore {
     match /users/{userId}/pages/{page}/snapshots/{snapshotId} {
       allow read, delete: if isOwner(userId);
       allow create: if isOwner(userId)
-        && page in ['week03', 'week04', 'week05', 'project']
+        && page in ['week03', 'week04', 'week05', 'week06', 'week06paths', 'week06fields', 'project']
         && request.resource.data.page == page
         && request.resource.data.schema is int
         && request.resource.data.summary is string

@@ -5,8 +5,8 @@
  */
 
 .ui-system {
-  /* The one colour LEARN adds, an annotation red: outlines, progress, cue labels. */
-  --learn-accent: #ff3b30;
+  /* The one colour LEARN adds, the site accent: outlines, progress, cue labels. */
+  --learn-accent: var(--signal);
   --learn-dim: rgba(0, 0, 0, 0.66);
 }
 
