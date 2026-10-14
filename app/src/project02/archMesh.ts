@@ -1,6 +1,6 @@
 import { BufferGeometry, Float32BufferAttribute } from 'three'
 import { edgeTable, triTable } from 'three/examples/jsm/objects/MarchingCubes.js'
-import { archIndex, NO_GROUND, openFaces, voxelStress, type Architecture } from './architecture.ts'
+import { archIndex, NO_GROUND, openFaces, SUPPORT_UNSOLVED, voxelStress, type Architecture } from './architecture.ts'
 import { hash01, LATTICE_BASE, LATTICE_X0, LATTICE_Z0 } from './core.ts'
 
 /**
@@ -50,6 +50,9 @@ const FACES: readonly Face[] = [
 
 const INSET = 0.16
 const TILT = 0.55
+
+/** Stress as drawn: a voxel placed since support was last solved has none known yet, so it reads as sound. */
+const shownStress = (a: Architecture, index: number) => (a.support[index] === SUPPORT_UNSOLVED ? 0 : voxelStress(a, index))
 
 class Builder {
   position: number[] = []
@@ -212,7 +215,7 @@ export function buildChunk(a: Architecture, ci: number, ck: number, lod: ArchLod
           ]
           if (!open.some(Boolean)) continue
           const exposure = open.filter(Boolean).length / 6
-          const stress = voxelStress(a, index)
+          const stress = shownStress(a, index)
           const seed = hash01(index)
           const origin: [number, number, number] = [LATTICE_X0 + i * v, LATTICE_BASE + j * v, LATTICE_Z0 + k * v]
           b.anchor = growthAnchor(a, index, j > g, origin, v)
@@ -240,7 +243,7 @@ export function buildChunk(a: Architecture, ci: number, ck: number, lod: ArchLod
             if (solid[index]) {
               count += 1
               born = Math.min(born, birth[index]!)
-              stress = Math.max(stress, voxelStress(a, index))
+              stress = Math.max(stress, shownStress(a, index))
             }
           }
         }
@@ -374,7 +377,7 @@ export function buildChunkMarching(a: Architecture, ci: number, ck: number): { g
   const attributesOf = (index: number) => {
     let found = attributes.get(index)
     if (!found) {
-      found = [birth[index]!, voxelStress(a, index), openFaces(a, index) / 6, hash01(index)]
+      found = [birth[index]!, shownStress(a, index), openFaces(a, index) / 6, hash01(index)]
       attributes.set(index, found)
     }
     return found

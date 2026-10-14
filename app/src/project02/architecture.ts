@@ -256,6 +256,9 @@ const DECAY = {
 /** Members of overhang beyond which a part breaks off. */
 const BREAK_CANTILEVER = 8
 
+/** Support of a voxel placed since support was last solved. */
+export const SUPPORT_UNSOLVED = 254
+
 const CHUNK_WORLD = 0.8
 
 /** Ground missing from a column: nothing may stand there. */
@@ -437,6 +440,12 @@ export function forEachOccupied(a: Architecture, visit: (col: number, i: number,
 }
 
 function touch(a: Architecture, i: number, k: number) {
+  redraw(a, i, k)
+  a.version += 1
+}
+
+/** Marks the chunks drawing column (i, k) for a rebuild without counting as a structural change. */
+function redraw(a: Architecture, i: number, k: number) {
   const ci = Math.floor(i / a.chunk)
   const ck = Math.floor(k / a.chunk)
   a.chunkVersion[ci + a.chunksAcross * ck]! += 1
@@ -445,7 +454,6 @@ function touch(a: Architecture, i: number, k: number) {
   if (i % a.chunk === a.chunk - 1 && ci < a.chunksAcross - 1) a.chunkVersion[ci + 1 + a.chunksAcross * ck]! += 1
   if (k % a.chunk === 0 && ck > 0) a.chunkVersion[ci + a.chunksAcross * (ck - 1)]! += 1
   if (k % a.chunk === a.chunk - 1 && ck < a.chunksAcross - 1) a.chunkVersion[ci + a.chunksAcross * (ck + 1)]! += 1
-  a.version += 1
 }
 
 function setVoxel(a: Architecture, i: number, j: number, k: number, site: number, clock: number): boolean {
@@ -462,7 +470,7 @@ function setVoxel(a: Architecture, i: number, j: number, k: number, site: number
   }
   a.solid[index] = ownerOf(site)
   a.birth[index] = clock
-  a.support[index] = j === groundJ ? 0 : 254
+  a.support[index] = j === groundJ ? 0 : SUPPORT_UNSOLVED
   a.count += 1
   a.occupied[chunkOf(a, i, k)]! += 1
   a.top = Math.max(a.top, LATTICE_BASE + (j + 1) * a.voxel)
@@ -1164,8 +1172,15 @@ export function solveSupport(a: Architecture): number[] {
   const { support, solid, n, cols, ny } = a
   const limit = Math.min(254, 2 * BREAK_CANTILEVER * a.brush)
   const buckets: number[][] = Array.from({ length: limit + 1 }, () => [])
-  forEachOccupied(a, (col) => {
-    for (let j = 0; j < ny; j += 1) support[col + cols * j] = 255
+  forEachOccupied(a, (col, i, k) => {
+    let placed = false
+    for (let j = 0; j < ny; j += 1) {
+      const index = col + cols * j
+      if (solid[index] && support[index] === SUPPORT_UNSOLVED) placed = true
+      support[index] = 255
+    }
+    // Drawn while their support was unknown; redrawn once it is.
+    if (placed) redraw(a, i, k)
     const g = a.groundJ[col]!
     if (g < 0) return
     // Within a member of the ground a voxel bears on it, even if the one under it has worn away.
