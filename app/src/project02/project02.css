@@ -1,0 +1,568 @@
+/*
+ * Shadow Ecology 0.2 — on top of project.css (shared with 0.1) and the
+ * instrument layer in ui/system.css.
+ */
+
+/* Time: the clock reads first; playback and jumps share one row. */
+.project02 .eco-time,
+.project02 .eco-weather,
+.project02 .eco-ways,
+.project02 .eco-veg,
+.project02 .eco-paths,
+.project02 .eco-creatures,
+.project02 .eco-lens {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Parallel worlds: the shared past, the worlds, and how the picked one differs. */
+.project02 .eco-parallel,
+.project02 .eco-parallel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.project02 .eco-parallel {
+  margin-top: 12px;
+}
+
+.project02 .eco-parallel-past,
+.project02 .eco-traits {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.project02 .eco-worlds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.project02 .eco-worlds .text-button[aria-pressed='true'] {
+  color: var(--ui-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.project02 .eco-worlds .text-button:disabled {
+  opacity: 0.35;
+}
+
+/* Floating labels over the worlds in the scene. */
+.eco-world-label {
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  background: rgba(8, 8, 8, 0.72);
+  color: #b9b4aa;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.eco-world-label[data-active] {
+  border-color: #f4efe2;
+  color: #f4efe2;
+}
+
+/* Quality: rendering cost, set apart above the numbered sections. */
+.project02 .eco-quality {
+  margin-bottom: 20px;
+}
+
+.project02 .eco-clock {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  white-space: nowrap;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.project02 .eco-time-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.project02 .eco-time-row .segmented {
+  flex: none;
+}
+
+.project02 .eco-time-row .segmented button {
+  padding: 3px 6px;
+}
+
+.project02 .eco-jumps {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.project02 .eco-jumps .text-button {
+  white-space: nowrap;
+}
+
+.project02 .eco-jumps .text-button:disabled {
+  cursor: progress;
+  opacity: 0.5;
+}
+
+.project02 .eco-weather {
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+}
+
+.project02 .eco-weather-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.project02 .eco-weather-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
+  padding-left: 10px;
+  border-left: 2px solid var(--rule);
+}
+
+.project02 .eco-weather-conditions[data-source='manual'] {
+  border-left-color: var(--signal);
+}
+
+.project02 .eco-weather-sub {
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
+  padding-left: 14px;
+}
+
+.project02 .eco-weather .readout[data-forcing] {
+  color: var(--signal);
+}
+
+/* Ways of seeing: a one-line key, swatches filled for tints, outlined for contours. */
+.project02 .eco-sense-key ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+  color: var(--ui-text);
+  font-size: var(--text-micro);
+}
+
+.project02 .eco-sense-key li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.project02 .eco-note {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: var(--text-micro);
+  line-height: 1.4;
+}
+
+.project02 .eco-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+}
+
+.project02 .eco-swatch[data-line] {
+  border-width: 1.5px;
+}
+
+.project02 .eco-swatch[data-mark] {
+  width: 6px;
+  height: 6px;
+  margin: 0 2px;
+  border-radius: 50%;
+  background: var(--ui-text);
+}
+
+.project02 .eco-question {
+  color: var(--ui-text);
+  font-style: italic;
+}
+
+.project02.project .panel-section-body > .eco-embody,
+.project02 .eco-branch-actions,
+.project02 .eco-pair,
+.project02 .eco-veg-kinds {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.project02 .eco-pair .toggle {
+  flex: none;
+  width: 64px;
+}
+
+.project02 .eco-pair .slider {
+  flex: 1;
+}
+
+.project02 .eco-pair .readout {
+  flex: none;
+  width: 38px;
+  text-align: right;
+}
+
+.project02 .eco-focus {
+  margin: 0;
+  color: var(--signal);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+}
+
+
+.project02 .eco-count {
+  color: var(--ui-title);
+}
+
+.project02 .eco-counts {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.project02 .eco-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project02 .eco-lod {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  opacity: 0.7;
+}
+
+.project02 .eco-rules {
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+}
+
+.project02 .panel-section-action .annotation {
+  white-space: normal;
+}
+
+.project02 .eco-rule {
+  display: block;
+}
+
+.project02 .eco-rule + .eco-rule {
+  margin-top: 6px;
+}
+
+.project02 .eco-rule b {
+  margin-right: 4px;
+  color: var(--ui-title);
+  font-weight: 500;
+}
+
+/* History: milestones, each opening onto its chain. */
+.project02 .eco-history-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.project02 .eco-history {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project02 .eco-milestone {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-title);
+  font: inherit;
+  font-size: var(--text-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.project02 .eco-milestone:hover .eco-milestone-title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.project02 .eco-history li[data-minor] .eco-milestone {
+  color: var(--ui-muted);
+}
+
+.project02 .eco-milestone-day {
+  flex: none;
+  width: 52px;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.project02 .eco-milestone-count {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+}
+
+.project02 .eco-history-more {
+  align-self: flex-start;
+}
+
+.project02 .eco-chain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 6px 62px;
+  padding: 0 0 0 8px;
+  border-left: 1px solid var(--rule-strong);
+  list-style: none;
+  color: var(--ui-text);
+  font-size: var(--text-micro);
+  line-height: 1.35;
+}
+
+.project02 .eco-chain li[data-pending] {
+  color: var(--ui-faint);
+}
+
+.project02 .eco-chain li span {
+  display: inline-block;
+  min-width: 72px;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.project02 .eco-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.project02 .eco-branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project02 .eco-branch-list button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.project02 .eco-branch-list button:hover {
+  border-color: var(--rule-strong);
+  color: var(--ui-title);
+}
+
+.project02 .eco-branch-list li[data-head] button {
+  border-color: var(--ui-title);
+  color: var(--ui-title);
+}
+
+.project02 .eco-branch-label {
+  font-size: var(--text-ui);
+}
+
+.project02 .eco-branch-summary {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  white-space: nowrap;
+}
+
+
+.project02[data-lens] .world-canvas canvas {
+  cursor: crosshair;
+}
+
+.project02 .eco-day {
+  color: inherit;
+}
+
+/* Jump progress sits in the row under the jumps. */
+.project02 .eco-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.project02 .eco-jumps .text-button[aria-pressed='true'] {
+  color: var(--ui-title);
+}
+
+.project02 .eco-progress .readout {
+  flex: none;
+  min-width: 112px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.project02 .eco-bar {
+  position: relative;
+  display: block;
+  flex: 1;
+  height: 3px;
+  background: var(--rule);
+}
+
+.project02 .eco-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ui-title);
+}
+
+/* The focused entity: what it is doing and the values it reads. */
+.project02 .eco-focus-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+}
+
+.project02 .eco-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ui-muted);
+  font-size: var(--text-micro);
+}
+
+.project02 .eco-values li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project02 .eco-values li > span:first-child {
+  flex: none;
+  width: 72px;
+}
+
+.project02 .eco-values .eco-bar > span {
+  background: #ffb347;
+}
+
+.project02 .eco-arch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project02 .eco-arch .segmented button {
+  padding: 3px 6px;
+}
+
+/* The lens's label follows it under the canvas; the hands match the dial. */
+.project02 .eco-lens-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: rgba(7, 8, 10, 0.72);
+  color: var(--ui-text);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.project02 .eco-lens-label[hidden] {
+  display: none;
+}
+
+.project02 .eco-lens-label strong {
+  color: var(--signal);
+  font-weight: 500;
+}
+
+.project02 .eco-lens-label i {
+  display: inline-block;
+  width: 10px;
+  height: 2px;
+  margin: 0 3px 2px 6px;
+  vertical-align: middle;
+  background: #f4efe2;
+}
+
+.project02 .eco-lens-label i[data-hand='inside'] {
+  background: #ffb347;
+}
+
+.project02 .eco-steer-hint {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  margin: 0;
+  padding: 5px 10px;
+  transform: translateX(-50%);
+  background: rgba(7, 8, 10, 0.72);
+  color: var(--signal);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  pointer-events: none;
+}

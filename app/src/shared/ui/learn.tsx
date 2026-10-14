@@ -25,7 +25,11 @@ export type LearnTarget = LearnSelector | { select: LearnSelector; outline?: boo
 export type LearnStep = {
   title: string
   /** One or two sentences. */
-  text: string
+  text?: string
+  /** Short complete sentences, one per bullet. */
+  points?: readonly string[]
+  /** One line set apart, to be read as it stands. */
+  quote?: string
   /** Something to do with the live controls or the scene. */
   try?: string
   /** What to look at, or what the result shows. */
@@ -279,10 +283,13 @@ function FocusLayer({ rects, stepKey }: { rects: readonly Rect[]; stepKey: numbe
 export function LearnTour({
   steps,
   label = 'Learn',
+  cues = {},
   onExit,
 }: {
   steps: readonly LearnStep[]
   label?: string
+  /** Labels for the `try` and `notice` cues. */
+  cues?: { try?: string; notice?: string }
   onExit: () => void
 }) {
   const [index, setIndex] = useState(0)
@@ -348,16 +355,24 @@ export function LearnTour({
         <div className="learn-card-body">
           <h2 className="learn-card-title">{step.title}</h2>
           {step.figure}
-          <p className="learn-card-text">{step.text}</p>
+          {step.text ? <p className="learn-card-text">{step.text}</p> : null}
+          {step.points ? (
+            <ul className="learn-points">
+              {step.points.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          ) : null}
+          {step.quote ? <blockquote className="learn-quote">{step.quote}</blockquote> : null}
           {step.try ? (
             <p className="learn-cue">
-              <span className="learn-cue-label">Try</span>
+              <span className="learn-cue-label">{cues.try ?? 'Try'}</span>
               {step.try}
             </p>
           ) : null}
           {step.notice ? (
             <p className="learn-cue">
-              <span className="learn-cue-label">Notice</span>
+              <span className="learn-cue-label">{cues.notice ?? 'Notice'}</span>
               {step.notice}
             </p>
           ) : null}

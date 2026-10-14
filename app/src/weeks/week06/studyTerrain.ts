@@ -41,8 +41,8 @@ const TOP_SEGMENTS = 176
 const WATER_SEGMENTS = 120
 /** Ground height given to grid cells off the block, so light passes them. */
 const OFF_BLOCK = -10
-const MOISTURE_RANGE = 0.45
-const LOWLAND_MOISTURE = 0.35
+export const MOISTURE_RANGE = 0.45
+export const LOWLAND_MOISTURE = 0.35
 /** Water-proximity falloff for the terrain material's bank darkening. */
 const WATER_EDGE_RANGE = 0.12
 /** The outlet channel: from inside the lake to beyond the front edge. */

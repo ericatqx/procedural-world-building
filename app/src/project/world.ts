@@ -6,10 +6,10 @@ import {
   UnsignedByteType,
   type BufferGeometry,
 } from 'three'
-import { cellCenter, GRID_EXTENT, GRID_SIZE } from './grid.ts'
+import { DEFAULT_GRID, gridCellCenter, type AnalysisGrid } from './grid.ts'
 import { createHydrology, type Hydrology } from './hydrology.ts'
 import type { Ground } from './light.ts'
-import { createLandmass, type Landmass } from './terrain.ts'
+import { createLandmass, ISLAND_SHAPE, type Landmass, type TerrainShape } from './terrain.ts'
 import { createChannels, createWaterGeometry, type WaterStats } from './water.ts'
 
 /**
@@ -49,24 +49,31 @@ const OFF_ISLAND = -10
 
 export const byte = (value: number) => Math.round(Math.min(1, Math.max(0, value)) * 255)
 
-export function createBaseWorld(): BaseWorld {
-  const hydrology = createHydrology()
-  const channels = createChannels(hydrology.rivers)
-  const landmass = createLandmass(channels.carve)
-  const water = createWaterGeometry(hydrology, channels.groundHeight, landmass.lowest)
+/** `fallBelow`: how far falls drop past the underside before they are gone. */
+export function createBaseWorld(
+  shape: TerrainShape = ISLAND_SHAPE,
+  fallBelow?: number,
+  grid: AnalysisGrid = DEFAULT_GRID,
+): BaseWorld {
+  const hydrology = createHydrology(shape, grid)
+  const channels = createChannels(hydrology.rivers, shape, grid)
+  const landmass = createLandmass(channels.carve, shape)
+  const water = createWaterGeometry(hydrology, channels.groundHeight, landmass.lowest, fallBelow, grid)
+  const count = grid.size * grid.size
+  const at = (index: number) => gridCellCenter(grid, index)
 
-  const heights = new Float32Array(GRID_SIZE * GRID_SIZE).fill(OFF_ISLAND)
+  const heights = new Float32Array(count).fill(OFF_ISLAND)
   let top = -Infinity
   for (let index = 0; index < heights.length; index += 1) {
     if (hydrology.inside[index]) {
-      const [x, z] = cellCenter(index)
+      const [x, z] = at(index)
       heights[index] = channels.groundHeight(x, z)
       top = Math.max(top, heights[index]!)
     }
   }
 
-  const data = new Uint8Array(GRID_SIZE * GRID_SIZE * 4)
-  for (let index = 0; index < GRID_SIZE * GRID_SIZE; index += 1) {
+  const data = new Uint8Array(count * 4)
+  for (let index = 0; index < count; index += 1) {
     data[index * 4] = byte(hydrology.moisture[index]!)
     data[index * 4 + 3] = byte(Math.exp(-hydrology.waterDistance[index]! / WATER_EDGE_RANGE))
   }
@@ -77,14 +84,14 @@ export function createBaseWorld(): BaseWorld {
     ground: { heights, top },
     water: water.geometry,
     waterStats: water.stats,
-    field: gridTexture(data),
-    habitatField: gridTexture(new Uint8Array(GRID_SIZE * GRID_SIZE * 4)),
-    fieldExtent: GRID_EXTENT,
+    field: gridTexture(data, grid.size),
+    habitatField: gridTexture(new Uint8Array(count * 4), grid.size),
+    fieldExtent: grid.extent,
   }
 }
 
-function gridTexture(data: Uint8Array): DataTexture {
-  const texture = new DataTexture(data, GRID_SIZE, GRID_SIZE, RGBAFormat, UnsignedByteType)
+function gridTexture(data: Uint8Array, size: number): DataTexture {
+  const texture = new DataTexture(data, size, size, RGBAFormat, UnsignedByteType)
   texture.magFilter = LinearFilter
   texture.minFilter = LinearFilter
   texture.wrapS = ClampToEdgeWrapping

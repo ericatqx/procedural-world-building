@@ -25,45 +25,53 @@ One page per week in the app, and one tutorial per week in [`docs/tutorials/`](d
 | 04 | Voxels & Firebase | Density fields · CSG (union, subtract, intersect) · Blocks vs Marching Cubes · chunks · Google sign-in, Firestore snapshots, Hosting | [Voxels](docs/tutorials/04-01-voxels.md) · [Firebase](docs/tutorials/04-02-firebase.md) |
 | 05 | Shaders | Vertex and fragment stages · uniforms, attributes and varyings · fields and terms on three specimens · displacement | [Shaders](docs/tutorials/05-shaders.md) |
 | 06 | Spatial Systems | Seeded candidates, valid ground and weighted draws · Random, Noise and Environment weights · spanner networks, downhill flow and branching growth · terrain-steered wind field, particles and exposure | [Spatial Systems](docs/tutorials/06-spatial-systems.md) |
+| 07 | Branching Systems | Stochastic L-systems and a 3D turtle · Free, Seek light and Seek shelter · growth through time · Full / Reduced / Skeleton LOD · one world branching into five histories · gated events and persistent traces | [Branching Systems](docs/tutorials/07-branching-systems.md) |
 
 Before Week 02: [Git and GitHub for Beginners](docs/tutorials/01-git-and-github.md) (Week 01). New notes start from the [tutorial template](docs/tutorials/_template.md).
 
 ### Selected Studies
 
-| Week 03 — Erosion | Week 04 — Voxels | Week 05 — Shaders | Week 06 — Spatial Systems |
-| --- | --- | --- | --- |
-| [![Terrain after hydraulic erosion, with cyan water pooled in basins and valleys](docs/images/week03/simulation-water-new.png)](docs/tutorials/03-procedural-noise-and-terrain.md) | [![Voxel ruin massing built from CSG steps, with chunk lines](docs/images/week04/voxel-view-new.png)](docs/tutorials/04-01-voxels.md) | [![Noise displacement on the Structure specimen in the vertex stage](docs/images/week05/displacement-structure.png)](docs/tutorials/05-shaders.md) | [![Structures, vegetation and colonies distributed over the study terrain by the Environment method](docs/images/week06/distribution-environment-world.png)](docs/tutorials/06-spatial-systems.md) |
-| Rain carves the heightmap; water settles where it drains. | A ruin assembled from density fields and CSG steps. | A vertex shader pushes the surface along noise. | Three layers scattered by the ground each one prefers. |
+| Week 03 — Erosion | Week 04 — Voxels | Week 05 — Shaders | Week 06 — Spatial Systems | Week 07 — Branching Systems |
+| --- | --- | --- | --- | --- |
+| [![Terrain after hydraulic erosion, with cyan water pooled in basins and valleys](docs/images/readme/week03-erosion.png)](docs/tutorials/03-procedural-noise-and-terrain.md) | [![Voxel ruin massing built from CSG steps, with chunk lines](docs/images/readme/week04-voxels.png)](docs/tutorials/04-01-voxels.md) | [![Noise displacement on the Structure specimen in the vertex stage](docs/images/readme/week05-shaders.png)](docs/tutorials/05-shaders.md) | [![Structures, vegetation and colonies distributed over the study terrain by the Environment method](docs/images/readme/week06-spatial-systems.png)](docs/tutorials/06-spatial-systems.md) | [![An L-system organism grown under Seek light, rising and leaning toward the sun beside a cantilevered slab](docs/images/readme/week07-branching-systems.png)](docs/tutorials/07-branching-systems.md) |
+| Rain carves the heightmap; water settles where it drains. | A ruin assembled from density fields and CSG steps. | A vertex shader pushes the surface along noise. | Three layers scattered by the ground each one prefers. | One grammar, three ways of answering the light. |
 
 ---
 
 ## Main Project — Shadow Ecology
 
-**Prototype 0.1.** A small world where architecture grows toward the sun, and the shadow it casts slowly becomes habitat.
+### Shadow Ecology 0.2
+
+A procedural world where environmental processes leave traces over time.
+
+**Core causal loop**
 
 ```text
-Light → Growth → Structure → Shadow / Shelter → Habitat
-                    ↑
-       Weather and time → Weathering
+Light → Growth → Structure → Shadow → Habitat → Trace → Future World
 ```
 
-![Shadow Ecology on Day 50: a graphite architecture cluster on sculpted terrain, with lakes and falls, and the instrument panel on the right](docs/images/project/day50-world.png)
+![Shadow Ecology 0.2 on Day 10: voxel structures rising from a sculpted island, with light- and shadow-seeking vegetation, cobalt rivers and lakes, and a waterfall pouring off the rim](docs/images/project/shadow-ecology-02-overview.png)
 
-**Current systems**
+- **Terrain and water.** Layered noise shapes ridges, valleys and basins; drainage gathers into rivers, lakes and waterfalls.
+- **Architecture.** Voxel structures grow through local decisions about light, support, connection and structural risk, then age, fail and fall as rubble.
+- **Ecology.** Light-seeking and shadow-seeking vegetation each settle where conditions suit them, so the shade of architecture reshapes where life grows.
+- **Paths and traces.** Repeated simulated trips wear routes into the terrain, and worn paths are easier to reuse, so they reinforce themselves.
+- **Weather and material memory.** Rain, wind and fog change the world, and wetness, staining and weathering stay visible after the weather has passed.
+- **Ways of Seeing and history.** World, Architecture and Habitat read the same state in different ways; the Observation Lens slows time locally to show processes up close; Parallel Worlds shows how one shared past diverges under different disturbances.
 
-- **Light-driven growth.** Daylight earns a voxel budget, spent on architectural moves (rise, wall, terrace, cantilever, span, opening) that favour sunlit, sun-facing positions. Up to three sites, capped at 7,000 voxels.
-- **Accumulated shelter → habitat.** Each day's sunlight is traced through the structure; at sunset the shade is folded into a roughly four-day memory. Habitat is remembered shelter × moisture × footing, so it lags behind the architecture.
-- **Weathering.** Driven by weather and time, not sunlight: old, open, high and poorly supported modules wear away, and freed ground reopens to light.
-- **Ecology.** Water read from the terrain (lakes, rivers, falls, moisture), vegetation that needs sun rather than shade, and least-cost paths linking sites, water and habitat.
-- **Ways of seeing.** The 3D world with material traces, a Field-only view, the Observation plate's top-down Plan, and layer cards with live readouts, all reading the same state.
+#### Timelapse
 
-The simulation is deterministic, with time jumps of 1, 10, 50 and 100 days.
+**Timelapse:** [Shadow Ecology evolving through several simulated days](docs/media/project/shadow-ecology-02-timelapse.mp4) (MP4, 24 s).
 
-![Observation plate on Day 50: a north-up Plan survey showing water, architecture footprints, habitat patches and the sun ring](docs/images/project/day50-plan.png)
+### Prototype 0.1
+
+The first prototype established the original relationship: architecture grows toward light, its shadow accumulates as shelter, and remembered shelter becomes habitat.
+
+### References
 
 - Concept, rules and known gaps: [Shadow Ecology planning](docs/planning/shadow-ecology.md)
 - Visual direction: [Style Guide](STYLE-GUIDE.md)
-- Code: [`app/src/project/`](app/src/project/)
+- Code: [`app/src/project02/`](app/src/project02/) (0.2) · [`app/src/project/`](app/src/project/) (0.1)
 
 ---
 
@@ -71,14 +79,17 @@ The simulation is deterministic, with time jumps of 1, 10, 50 and 100 days.
 
 ```text
 app/                   Vite + React + TypeScript + Three.js (React Three Fiber)
-  src/weeks/week02–06  Weekly exercise pages
-  src/project/         Shadow Ecology prototype
+  src/weeks/week02–07  Weekly exercise pages
+  src/project02/       Shadow Ecology 0.2
+  src/project/         Shadow Ecology 0.1 prototype
   src/shared/          Noise, shaders, snapshot persistence, UI system
 docs/
-  tutorials/           Weekly study notes (Week 01–06) and template
+  tutorials/           Weekly study notes (Week 01–07) and template
   analysis/            Experiments, observations and critique
   planning/            Shadow Ecology plan and early backlog
-  images/              Screenshots per week and for the project
+  images/              Weekly, README and project screenshots
+  media/
+    project/           Shadow Ecology video media
 STYLE-GUIDE.md         Visual language for the lab
 firebase.json          Hosting (target: lab) and Firestore config
 firestore.rules        Per-user snapshot rules

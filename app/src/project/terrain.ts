@@ -11,8 +11,8 @@ import { perlin2 } from '../shared/noise/perlin.ts'
  */
 export const ISLAND_RADIUS = 3
 
-const TOP_RINGS = 96
-const SEGMENTS = 384
+const DEFAULT_TOP_RINGS = 96
+const DEFAULT_SEGMENT_COUNT = 384
 const CLIFF_ROWS = 64
 const UNDERSIDE_RINGS = 40
 
@@ -102,15 +102,61 @@ function rimErosion(t: number, angle: number): number {
   return 0.32 * band * band * (0.65 + 0.35 * ringNoise(angle, 4, 1.3))
 }
 
-/** Top-surface height anywhere on the island (erosion included). */
-export function surfaceHeight(x: number, z: number): number {
-  const angle = Math.atan2(z, x)
-  const t = Math.min(1, Math.hypot(x, z) / outlineRadius(angle))
-  return landform(x, z) - rimErosion(t, angle)
-}
-
 /** Cliff height by angle: deeper under the ridge, uneven all round. */
 const cliffDepth = (angle: number) => 0.5 + 0.18 * ringNoise(angle, 2.6, 5.2) + 0.2 * Math.max(0, -Math.sin(angle))
+
+/**
+ * A floating landmass's shape: its outline, the landform on top, how the
+ * rim wears down and how deep the cliff runs. 0.1's island is the default;
+ * later prototypes pass their own.
+ */
+export type TerrainShape = {
+  outlineRadius: (angle: number) => number
+  landform: (x: number, z: number) => number
+  rimErosion: (t: number, angle: number) => number
+  cliffDepth: (angle: number) => number
+  /** How far the underside hangs below the cliff. */
+  undersideDepth: number
+  /** Scales river width and depth (a larger landform drawn at a larger scale keeps its rivers narrow). */
+  riverScale?: number
+  /** Top-surface mesh density. Omitted, 0.1's 96 rings × 384 segments are used. */
+  tessellation?: { rings: number; segments: number }
+  /** Hydrology thresholds; omitted, 0.1's are used. */
+  water?: {
+    riverMinCells?: number
+    lakeMinCells?: number
+    lakeMinMaxDepth?: number
+    /**
+     * Authored lakes and rivers, drawn instead of the ones read from drainage
+     * (which still feeds moisture). The landform must already hold them: a
+     * basin below each lake's level, a valley along each river.
+     */
+    layout?: WaterLayout
+  }
+}
+
+export type WaterLayout = {
+  /** Water stands at `level` over the ground below it, within `contains`. */
+  lakes: { level: number; contains: (x: number, z: number) => boolean }[]
+  /**
+   * Each a dense centreline, head to mouth; `flow` (cells of drained ground)
+   * sets the width. A river starting in a lake leaves it at the lake's level;
+   * an `outlet` runs on to the rim and falls.
+   */
+  rivers: { points: { x: number; z: number; flow: number }[]; outlet: boolean }[]
+}
+
+export const ISLAND_SHAPE: TerrainShape = { outlineRadius, landform, rimErosion, cliffDepth, undersideDepth: UNDERSIDE_DEPTH }
+
+/** Top-surface height of a shape (erosion included). */
+export const surfaceHeightOf = (shape: TerrainShape) => (x: number, z: number) => {
+  const angle = Math.atan2(z, x)
+  const t = Math.min(1, Math.hypot(x, z) / shape.outlineRadius(angle))
+  return shape.landform(x, z) - shape.rimErosion(t, angle)
+}
+
+/** Top-surface height anywhere on the island (erosion included). */
+export const surfaceHeight = surfaceHeightOf(ISLAND_SHAPE)
 
 const hash = (n: number) => {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453
@@ -157,7 +203,12 @@ export type Landmass = {
 /** How far a channel lowers the top surface at (x, z); 0 away from water. */
 export type Carve = (x: number, z: number) => number
 
-export function createLandmass(carve: Carve = () => 0): Landmass {
+export function createLandmass(carve: Carve = () => 0, shape: TerrainShape = ISLAND_SHAPE): Landmass {
+  const { outlineRadius, landform, rimErosion, cliffDepth } = shape
+  const UNDERSIDE_DEPTH = shape.undersideDepth
+  const rings = shape.tessellation?.rings ?? DEFAULT_TOP_RINGS
+  const segments = shape.tessellation?.segments ?? DEFAULT_SEGMENT_COUNT
+  const surfaceHeight = surfaceHeightOf(shape)
   const positions: number[] = []
   const below: number[] = []
   const indices: number[] = []
@@ -166,12 +217,12 @@ export function createLandmass(carve: Carve = () => 0): Landmass {
     below.push(depth)
     return positions.length / 3 - 1
   }
-  const angleOf = (s: number) => (2 * Math.PI * s) / SEGMENTS
+  const angleOf = (s: number) => (2 * Math.PI * s) / segments
 
   const rimTop: number[] = []
   const rimBottom: number[] = []
   const radii: number[] = []
-  for (let s = 0; s < SEGMENTS; s += 1) {
+  for (let s = 0; s < segments; s += 1) {
     const angle = angleOf(s)
     const radius = outlineRadius(angle)
     radii.push(radius)
@@ -184,8 +235,8 @@ export function createLandmass(carve: Carve = () => 0): Landmass {
   // Top: centre fan plus rings out to the outline.
   const topCenter = push(0, surfaceHeight(0, 0) - carve(0, 0), 0)
   const topRings: number[][] = []
-  for (let ring = 1; ring <= TOP_RINGS; ring += 1) {
-    const t = ring / TOP_RINGS
+  for (let ring = 1; ring <= rings; ring += 1) {
+    const t = ring / rings
     topRings.push(
       radii.map((radius, s) => {
         const angle = angleOf(s)
@@ -195,14 +246,14 @@ export function createLandmass(carve: Carve = () => 0): Landmass {
       }),
     )
   }
-  const next = (s: number) => (s + 1) % SEGMENTS
-  for (let s = 0; s < SEGMENTS; s += 1) {
+  const next = (s: number) => (s + 1) % segments
+  for (let s = 0; s < segments; s += 1) {
     indices.push(topCenter, topRings[0]![next(s)]!, topRings[0]![s]!)
   }
-  for (let ring = 0; ring < TOP_RINGS - 1; ring += 1) {
+  for (let ring = 0; ring < rings - 1; ring += 1) {
     const inner = topRings[ring]!
     const outer = topRings[ring + 1]!
-    for (let s = 0; s < SEGMENTS; s += 1) {
+    for (let s = 0; s < segments; s += 1) {
       const a = inner[s]!
       const b = inner[next(s)]!
       const c = outer[s]!
@@ -230,7 +281,7 @@ export function createLandmass(carve: Carve = () => 0): Landmass {
   for (let row = 0; row < CLIFF_ROWS; row += 1) {
     const upper = cliffRows[row]!
     const lower = cliffRows[row + 1]!
-    for (let s = 0; s < SEGMENTS; s += 1) {
+    for (let s = 0; s < segments; s += 1) {
       indices.push(upper[s]!, upper[next(s)]!, lower[s]!, upper[next(s)]!, lower[next(s)]!, lower[s]!)
     }
   }
@@ -239,7 +290,7 @@ export function createLandmass(carve: Carve = () => 0): Landmass {
   // centre, with ridged noise for fractured, dripping rock.
   let lowest = Infinity
   const undersideCenterY = (() => {
-    const meanRim = rimBottom.reduce((sum, y) => sum + y, 0) / SEGMENTS
+    const meanRim = rimBottom.reduce((sum, y) => sum + y, 0) / segments
     return meanRim - UNDERSIDE_DEPTH
   })()
   const undersideRings: number[][] = []
@@ -263,13 +314,13 @@ export function createLandmass(carve: Carve = () => 0): Landmass {
       }),
     )
   }
-  const meanTop = rimTop.reduce((sum, y) => sum + y, 0) / SEGMENTS
+  const meanTop = rimTop.reduce((sum, y) => sum + y, 0) / segments
   const keel = push(0, undersideCenterY - 0.2, 0, meanTop - (undersideCenterY - 0.2))
   lowest = Math.min(lowest, undersideCenterY - 0.2)
   for (let ring = 0; ring < UNDERSIDE_RINGS - 1; ring += 1) {
     const outer = undersideRings[ring]!
     const inner = undersideRings[ring + 1]!
-    for (let s = 0; s < SEGMENTS; s += 1) {
+    for (let s = 0; s < segments; s += 1) {
       const a = inner[s]!
       const b = inner[next(s)]!
       const c = outer[s]!
@@ -278,7 +329,7 @@ export function createLandmass(carve: Carve = () => 0): Landmass {
     }
   }
   const innermost = undersideRings[UNDERSIDE_RINGS - 1]!
-  for (let s = 0; s < SEGMENTS; s += 1) {
+  for (let s = 0; s < segments; s += 1) {
     indices.push(keel, innermost[s]!, innermost[next(s)]!)
   }
 

@@ -356,7 +356,8 @@ function usePlayClock(playing: boolean, speed: number, onAdvance: (hours: number
   }, [playing, speed])
 }
 
-export function ShadowEcologyProject() {
+/** `tabs` and `about` let a version switcher wrap the prototype; alone it shows its own About. */
+export function ShadowEcologyProject({ tabs, about = ABOUT }: { tabs?: ReactNode; about?: ExerciseAbout } = {}) {
   const [hour, setHour] = useState(START_HOUR)
   const hourRef = useRef(START_HOUR)
   const [noonElevation, setNoonElevation] = useState(START_NOON)
@@ -709,9 +710,10 @@ export function ShadowEcologyProject() {
         <div className="region-left">
           <ExerciseHeading
             title="Shadow Ecology"
-            about={ABOUT}
+            about={about}
             actions={<LearnToggle label="Guide" active={guiding} onChange={setGuiding} />}
           />
+          {tabs}
           <p className="project-tag">Prototype 0.1 · light → growth → shadow → habitat</p>
           <ObservationPlate {...plateWorld} expanded={plateExpanded} onExpandedChange={setPlateExpanded} />
         </div>

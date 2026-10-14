@@ -26,7 +26,16 @@ import { db } from '../../firebase.ts'
  * firestore.rules. Firestore is touched only by Save, Load and Delete.
  */
 
-export type PageId = 'week03' | 'week04' | 'week05' | 'week06' | 'week06paths' | 'week06fields' | 'project'
+export type PageId =
+  | 'week03'
+  | 'week04'
+  | 'week05'
+  | 'week06'
+  | 'week06paths'
+  | 'week06fields'
+  | 'week07trace'
+  | 'project'
+  | 'project02'
 
 /** Firestore-safe plain data: no undefined, no nested arrays, no typed arrays. */
 export type SnapshotState = Record<string, unknown>

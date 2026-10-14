@@ -118,6 +118,81 @@
   line-height: 1.5;
 }
 
+.ui-system .learn-points {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ui-text);
+  font-size: var(--text-body);
+  line-height: 1.45;
+}
+
+.ui-system .learn-points li {
+  position: relative;
+  padding-left: 14px;
+}
+
+.ui-system .learn-points li::before {
+  content: '';
+  position: absolute;
+  top: 0.62em;
+  left: 0;
+  width: 5px;
+  height: 1px;
+  background: var(--learn-accent);
+}
+
+.ui-system .learn-quote {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--learn-accent);
+  color: var(--ui-title);
+  font-size: var(--text-body);
+  line-height: 1.45;
+}
+
+/* A causal chain in one line: links in ink, arrows in the accent. */
+.ui-system .learn-chain {
+  margin: 0;
+  color: var(--ui-title);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  line-height: 1.8;
+  text-transform: uppercase;
+}
+
+.ui-system .learn-chain-arrow {
+  color: var(--learn-accent);
+}
+
+/* A numbered run of short cues, e.g. a demo order. */
+.ui-system .learn-order {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px 12px;
+  margin: 0;
+  padding: 9px 0 0;
+  border-top: 1px solid var(--rule);
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  line-height: 1.8;
+  list-style: none;
+  text-transform: uppercase;
+  counter-reset: learn-order;
+}
+
+.ui-system .learn-order li::before {
+  content: counter(learn-order, decimal-leading-zero) ' ';
+  counter-increment: learn-order;
+  color: var(--learn-accent);
+}
+
 .ui-system .learn-cue {
   display: grid;
   grid-template-columns: 54px 1fr;

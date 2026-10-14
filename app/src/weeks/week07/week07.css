@@ -1,0 +1,480 @@
+/*
+ * Week 07 — rules specific to the Branching Systems exercise. The shared
+ * instrument layer lives in ui/system.css (root class `ui-system`).
+ */
+
+/* Subtabs: numbered like the panel sections, as in Week 06. */
+.week07 .view-tabs .tab-index {
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+}
+
+.week07 .view-tabs button[aria-selected='true'] .tab-index {
+  color: var(--ui-muted);
+}
+
+/* Tight groups inside a panel section. */
+.week07 .study-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.week07 .study-block .explain-eq,
+.week07 .study-block .explain-text {
+  margin: 0;
+}
+
+.week07 .explain-eq.is-quiet {
+  color: var(--ui-muted);
+}
+
+.week07 .row-foot {
+  gap: 14px;
+}
+
+.week07 .lod-note {
+  margin: 8px 0 0;
+}
+
+/* Play / Replay / speed on one line, as in Week 06. */
+.week07 .generation-transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.week07 .generation-transport .segmented {
+  flex: 1;
+}
+
+.week07 .generation-transport .segmented button {
+  padding: 4px 6px;
+}
+
+/* Key to the organism's tones and the study marks, each drawn like the mark. */
+.week07 .mark-key {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ui-muted);
+  font-size: var(--text-ui);
+}
+
+.week07 .mark-key li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.week07 .mark-key .mark {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin: 0 4.5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.week07 .mark-key .mark.is-line {
+  width: 14px;
+  height: 0;
+  margin: 0;
+  border-top: 2px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+}
+
+.week07 .mark-key .mark.is-area {
+  width: 8px;
+  height: 8px;
+  margin: 0 3px;
+  border-radius: 0;
+  outline: 1px solid var(--rule);
+}
+
+/* ─── 02 Branching Histories ─────────────────────────────────────────── */
+
+/* The tree needs more width than the heading column usually allows. */
+.week07 .region-left.is-wide {
+  width: min(520px, calc(100% - var(--panel-w) - 3 * var(--edge)));
+  max-width: none;
+}
+
+/* Collapses to its header row, like the instrument panel.
+   Opaque enough that labels read without a stroke around the type. */
+.week07 .history-map {
+  box-sizing: border-box;
+  width: 100%;
+  border-top: 1px solid var(--rule-strong);
+  background: rgba(10, 10, 10, 0.94);
+  pointer-events: auto;
+}
+
+.week07 .history-map.is-collapsed {
+  width: var(--panel-w);
+  background: transparent;
+}
+
+.week07 .history-map .instrument-head {
+  padding-left: 12px;
+}
+
+.week07 .history-map-body {
+  padding: 2px 14px 12px 10px;
+}
+
+.week07 .history-tree {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.week07 .ht-stage {
+  fill: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.week07 .ht-edge {
+  fill: none;
+  stroke: rgba(233, 230, 223, 0.28);
+  stroke-width: 1;
+}
+
+.week07 .ht-edge.is-hover {
+  stroke: var(--ui-muted);
+}
+
+.week07 .ht-edge.is-path {
+  stroke: var(--ui-title);
+  stroke-width: 1.75;
+}
+
+.week07 .ht-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.week07 .ht-node:focus-visible {
+  outline: none;
+}
+
+.week07 .ht-hit {
+  fill: transparent;
+}
+
+.week07 .ht-dot {
+  fill: #0b0b0b;
+  stroke: var(--ui-muted);
+  stroke-width: 1;
+}
+
+.week07 .ht-node.is-hover .ht-dot,
+.week07 .ht-node.is-path .ht-dot {
+  fill: var(--ui-title);
+  stroke: var(--ui-title);
+}
+
+.week07 .ht-node.is-selected .ht-dot {
+  fill: var(--signal);
+  stroke: var(--signal);
+}
+
+.week07 .ht-node:focus-visible .ht-dot {
+  stroke-width: 2.5;
+}
+
+.week07 .ht-label {
+  fill: rgba(233, 230, 223, 0.62);
+  font-family: var(--sans);
+  font-size: 10.5px;
+}
+
+.week07 .ht-node.is-path .ht-label,
+.week07 .ht-node.is-hover .ht-label {
+  fill: var(--ui-title);
+}
+
+.week07 .history-caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.week07 .ht-legend-path {
+  width: 14px;
+  border-top: 1.6px solid var(--ui-title);
+}
+
+/* Selected history, one step per line so the causal path stays readable in the narrow panel. */
+.week07-histories .history-path {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.week07-histories .history-path li + li::before {
+  content: '→';
+  margin-right: 6px;
+  color: var(--ui-faint);
+}
+
+.week07-histories .history-path li:last-child {
+  color: var(--ui-title);
+}
+
+/* Counts that moved. Vegetation is its own pair, not one combined line. */
+.week07-histories .change-rows {
+  display: grid;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week07-histories .change-rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  column-gap: 8px;
+  align-items: baseline;
+}
+
+.week07-histories .change-rows li.is-veg:not(:first-child),
+.week07-histories .change-rows li.is-after-veg {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+}
+
+.week07-histories .change-kicker {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.week07-histories .change-label {
+  min-width: 0;
+  color: var(--ui-muted);
+  font-size: var(--text-ui);
+  line-height: 1.3;
+}
+
+.week07-histories .change-value,
+.week07-histories .change-delta {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.week07-histories .change-value {
+  color: var(--ui-text);
+}
+
+.week07-histories .change-delta {
+  color: var(--ui-faint);
+}
+
+.week07-histories .instrument-panel .panel-section-head {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.week07-histories .instrument-panel .section-status {
+  white-space: normal;
+}
+
+.week07-histories .instrument-panel .panel-section + .panel-section {
+  margin-top: 18px;
+}
+
+.week07-histories .mark-key li {
+  align-items: center;
+  min-width: 0;
+}
+
+.week07-histories .mark-label {
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.week07-histories .metric-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.week07-histories .metric-veg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.week07-histories .metric-kicker {
+  margin: 0;
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+/* Carried state: value bar, a tick at the parent's value, and the change. */
+.week07 .state-bars {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week07-histories .state-bars li {
+  display: grid;
+  grid-template-columns: 6.15rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-label);
+}
+
+.week07-histories .state-label {
+  min-width: 0;
+  color: var(--ui-muted);
+  line-height: 1.25;
+}
+
+.week07-histories .state-value {
+  white-space: nowrap;
+}
+
+.week07-histories .state-bars + .state-bars {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.week07 .state-track {
+  position: relative;
+  height: 3px;
+  background: var(--rule);
+}
+
+.week07 .state-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--ui-muted);
+}
+
+.week07 .state-was {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 9px;
+  background: var(--ui-title);
+}
+
+.week07 .state-value {
+  color: var(--ui-text);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.week07 .state-value .is-up,
+.week07 .state-value .is-down {
+  color: var(--ui-faint);
+}
+
+.week07 .state-bars + .state-bars {
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+}
+
+.week07 .rule-stage {
+  margin: 4px 0 2px;
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.week07 .rule-list ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week07-histories .rule-list li {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  min-width: 0;
+  color: var(--ui-text);
+  font-size: var(--text-label);
+}
+
+.week07-histories .rule-list code {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* ─── Hide UI (H): only the canvas and a quiet way back ─────────────── */
+
+body.week07-immersive .app-header,
+body.week07-immersive .week07 .app-chrome,
+body.week07-immersive .week07 .learn-layer {
+  display: none;
+}
+
+.week07 .week07-strip.is-immersive .view-toggle {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ui-faint);
+}
+
+.week07 .week07-strip.is-immersive .view-toggle:hover {
+  color: var(--ui-muted);
+}

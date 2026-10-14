@@ -42,6 +42,39 @@ export const cellCenter = (index: number): [number, number] => {
   return [cellX(i), cellX((index - i) / GRID_SIZE)]
 }
 
+/**
+ * The analysis grid as data, so a later landmass can cover more ground
+ * without changing 0.1's constants. `DEFAULT_GRID` is that island.
+ */
+export type AnalysisGrid = {
+  size: number
+  extent: number
+  cell: number
+}
+
+export const DEFAULT_GRID: AnalysisGrid = { size: GRID_SIZE, extent: GRID_EXTENT, cell: CELL }
+
+export function gridCellCenter(grid: AnalysisGrid, index: number): [number, number] {
+  const i = index % grid.size
+  const j = (index - i) / grid.size
+  const at = (col: number) => -grid.extent + (col + 0.5) * grid.cell
+  return [at(i), at(j)]
+}
+
+export function gridForEachNeighbour(
+  grid: AnalysisGrid,
+  index: number,
+  visit: (neighbour: number, stepCells: number) => void,
+) {
+  const i = index % grid.size
+  const j = (index - i) / grid.size
+  for (const [di, dj, step] of NEIGHBOURS) {
+    const ni = i + di
+    const nj = j + dj
+    if (ni >= 0 && nj >= 0 && ni < grid.size && nj < grid.size) visit(ni + nj * grid.size, step)
+  }
+}
+
 /** Bilinear sample of a per-cell field at world (x, z). */
 export function sampleGrid(field: ArrayLike<number>, x: number, z: number): number {
   const fx = Math.min(GRID_SIZE - 1, Math.max(0, (x + GRID_EXTENT) / CELL - 0.5))

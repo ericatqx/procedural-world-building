@@ -919,7 +919,7 @@ export function DistributionStudy({ tabs }: { tabs: ReactNode }) {
       </div>
 
       {learning ? (
-        <LearnTour steps={learnSteps} label="Learn · Spatial Systems" onExit={exitLearning} />
+        <LearnTour steps={learnSteps} label="Learn · Distribution" onExit={exitLearning} />
       ) : null}
     </div>
   )

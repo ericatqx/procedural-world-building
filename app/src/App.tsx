@@ -3,12 +3,13 @@ import { BasicsWeek } from './weeks/week02/BasicsWeek.tsx'
 import { NoiseTerrainWeek } from './weeks/week03/NoiseTerrainWeek.tsx'
 import { ShadersWeek } from './weeks/week05/ShadersWeek.tsx'
 import { SpatialSystemsWeek } from './weeks/week06/SpatialSystemsWeek.tsx'
-import { ShadowEcologyProject } from './project/ShadowEcologyProject.tsx'
+import { BranchingSystemsWeek } from './weeks/week07/BranchingSystemsWeek.tsx'
+import { ShadowEcologyVersions } from './project02/ShadowEcologyVersions.tsx'
 import { VoxelExercise } from './weeks/week04/VoxelExercise.tsx'
 import { AuthBar } from './shared/ui/AuthBar.tsx'
 import './App.css'
 
-type WeekId = 'week02' | 'week03' | 'week04' | 'week05' | 'week06' | 'project'
+type WeekId = 'week02' | 'week03' | 'week04' | 'week05' | 'week06' | 'week07' | 'project'
 
 const EXERCISES: { id: WeekId; number: string; name: string }[] = [
   { id: 'week02', number: '02', name: 'Basics' },
@@ -16,7 +17,8 @@ const EXERCISES: { id: WeekId; number: string; name: string }[] = [
   { id: 'week04', number: '04', name: 'Voxels' },
   { id: 'week05', number: '05', name: 'Shaders' },
   { id: 'week06', number: '06', name: 'Spatial Systems' },
-  { id: 'project', number: '0.1', name: 'Project' },
+  { id: 'week07', number: '07', name: 'Branching Systems' },
+  { id: 'project', number: '', name: 'Project' },
 ]
 
 function App() {
@@ -40,7 +42,7 @@ function App() {
                 aria-selected={week === exercise.id}
                 onClick={() => setWeek(exercise.id)}
               >
-                <span className="exercise-number">{exercise.number}</span>
+                {exercise.number ? <span className="exercise-number">{exercise.number}</span> : null}
                 {exercise.name}
               </button>
             </Fragment>
@@ -54,7 +56,8 @@ function App() {
       {week === 'week04' ? <VoxelExercise /> : null}
       {week === 'week05' ? <ShadersWeek /> : null}
       {week === 'week06' ? <SpatialSystemsWeek /> : null}
-      {week === 'project' ? <ShadowEcologyProject /> : null}
+      {week === 'week07' ? <BranchingSystemsWeek /> : null}
+      {week === 'project' ? <ShadowEcologyVersions /> : null}
     </div>
   )
 }

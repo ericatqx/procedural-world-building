@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -30,6 +31,30 @@ function annotationPosition(trigger: HTMLElement | null): CSSProperties | null {
   }
 }
 
+const VIEWPORT_MARGIN_PX = 8
+
+/**
+ * Keeps an open annotation inside the viewport once its size is known: near
+ * the bottom it opens upward from its trigger, and it is clamped on both axes
+ * (scrolling inside itself only if taller than the viewport).
+ */
+function fitAnnotation(note: HTMLElement, trigger: HTMLElement) {
+  const m = VIEWPORT_MARGIN_PX
+  const room = window.innerHeight - 2 * m
+  note.style.maxHeight = `${room}px`
+  note.style.overflowY = 'auto'
+  const box = note.getBoundingClientRect()
+  if (box.bottom > window.innerHeight - m) {
+    const upward = trigger.getBoundingClientRect().bottom + 4 - box.height
+    const top = Math.min(upward, window.innerHeight - m - box.height)
+    note.style.top = `${Math.max(m, top)}px`
+  }
+  if (box.left < m) {
+    const right = parseFloat(note.style.right) || 0
+    note.style.right = `${Math.max(m, right - (m - box.left))}px`
+  }
+}
+
 /**
  * Click-to-open explanation. The annotation is fixed-positioned to the left of
  * the nearest `[data-annotation-anchor]` (the instrument panel), extending
@@ -40,17 +65,27 @@ function annotationPosition(trigger: HTMLElement | null): CSSProperties | null {
 /** A label that opens its explanation, extending left from the panel, when clicked. */
 export function InfoLabel({
   title,
+  heading = title,
   tip,
   className,
 }: {
   title: string
+  /** The annotation's title, when it should differ from the label. */
+  heading?: string
   tip: ReactNode
   className: string
 }) {
   const wrapperRef = useRef<HTMLSpanElement>(null)
+  const noteRef = useRef<HTMLSpanElement>(null)
   const [position, setPosition] = useState<CSSProperties | null>(null)
   const isOpen = position !== null
   const id = useId()
+
+  useLayoutEffect(() => {
+    if (position && noteRef.current && wrapperRef.current) {
+      fitAnnotation(noteRef.current, wrapperRef.current)
+    }
+  }, [position])
 
   useEffect(() => {
     if (!isOpen) {
@@ -94,8 +129,8 @@ export function InfoLabel({
         {title}
       </button>
       {isOpen ? (
-        <span id={id} role="note" className="annotation" style={position}>
-          <span className="annotation-title">{title}</span>
+        <span ref={noteRef} id={id} role="note" className="annotation" style={position}>
+          <span className="annotation-title">{heading}</span>
           <span className="annotation-text">{tip}</span>
         </span>
       ) : null}

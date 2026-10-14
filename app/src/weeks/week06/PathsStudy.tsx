@@ -681,7 +681,7 @@ export function PathsStudy({ tabs }: { tabs: ReactNode }) {
         </InstrumentPanel>
       </div>
 
-      {learning ? <LearnTour steps={learnSteps} label="Learn · Spatial Systems · Paths" onExit={exitLearning} /> : null}
+      {learning ? <LearnTour steps={learnSteps} label="Learn · Paths" onExit={exitLearning} /> : null}
     </div>
   )
 }

@@ -508,7 +508,7 @@ function weighting(
 }
 
 /** Points within `spacing` of each other, found through a uniform hash grid. */
-class SpacingGrid {
+export class SpacingGrid {
   private cells = new Map<string, Candidate[]>()
   private readonly spacing: number
 

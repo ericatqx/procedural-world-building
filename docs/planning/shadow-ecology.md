@@ -5,9 +5,9 @@
 
 | | |
 |---|---|
-| Status | Prototype 0.1 running: growth, shadow, remembered habitat and weathering are live |
-| Code | `app/src/project/` |
-| Last updated | 2026-09-29 |
+| Status | Prototype 0.1 running: growth, shadow, remembered habitat and weathering are live. Weeks 06–07 are course studies; 0.2 is a direction, not a build |
+| Code | `app/src/project/` (studies: `app/src/weeks/week06/`, `app/src/weeks/week07/`) |
+| Last updated | 2026-10-13 |
 
 ---
 
@@ -48,6 +48,26 @@ flowchart LR
 
 Growth is drawn to the sun, yet every block it adds takes sun from the ground and from the structure itself. Habitat is a by-product of growth that was never meant for it. Too little structure gives no shelter; too much shades out its own growth. Weathering keeps the balance moving: exposed form wears back, freed ground reopens to growth, and the shade shifts with it. The aim is turnover, not a finished state.
 
+### A grammar of traces
+
+Behind the principle sits a broader procedural grammar:
+
+```text
+environmental force → interaction → accumulated memory → visible trace → consequence
+```
+
+Where it matters, the world responds not only to its current conditions but to the history of what has happened there. The core tension is its most developed example:
+
+```text
+light + structure → repeated shade → remembered shelter → habitat → ecological consequence
+```
+
+Prototype 0.1 implements this chain, and weathering in a simpler form (weather is implicit, read through age and form). Other possible manifestations are exploratory, not implemented:
+- **Water** contact and flow → erosion, deposition, moisture boundaries, channels
+- **Weather and exposure** → wear, scars, material change
+- **Movement** → accumulated paths
+- **Organisms** → growth, occupation or other traces
+
 ### Time as memory
 
 The world's state is its history. What exists now is what has accumulated:
@@ -65,6 +85,8 @@ The ecology is one world state, shown in several representations. Each is a diff
 
 ### Concept history
 
+- **2026-10-13 — studies after 0.1:** Week 06 (distribution, paths, fields) and Week 07 (Trace Growth, Branching Histories) explored arrangement, environmental response, and what a site keeps after an event. Collected in [Since Prototype 0.1](#since-prototype-01). A record of explorations, not a change to the 0.1 concept.
+- **2026-10-07 — traces as a world grammar:** visual research showed that *environmental processes leave traces over time* extends beyond shadow. Light leaves shelter history; water, weather, movement and organisms could leave their own traces. These are not committed systems, but manifestations of one grammar, *force → memory → trace → consequence* ([A grammar of traces](#a-grammar-of-traces)). A conceptual clarification, not an implementation milestone: shadow and remembered shelter remain the primary developed example.
 - **Starting premise (early 0.1):** *temporary shadow defines temporary habitat.* The sun moves, so shadow moves, so habitat slides across the world through the day. This proved too instantaneous: shade that lasts an hour is not a place to live. Habitat is now built from **remembered** daytime shelter, so it follows changing shadow over days, not minutes.
 - **Earlier directions:** Shadow Ecology came out of four: Living Atlas, Emergent Civilization, Strange Ecology and Inverted Ecology. It keeps these principles:
   - **Inversion with an internal logic:** familiar relationships reversed (architecture adapting to nature, organisms supporting the environment), always with a rule behind them, not just visual strangeness.
@@ -76,6 +98,16 @@ The ecology is one world state, shown in several representations. Each is a diff
 ## Visual Direction
 
 What the world could look and feel like: architecture, organism, geology and scientific model blurring into one formal language, with organisms derived from the same procedural language as the landscape and structures. Exploratory research, not Prototype 0.1 functionality.
+
+The current Are.na research suggests the world could read as an **evolving spatial record of its own processes**. Recurring qualities:
+- lines as records of movement, flow, growth or contact: contours, rings, paths, scars, branching and deposits
+- repeated simple elements accumulating into complex forms
+- quiet continuous fields interrupted by local disturbances
+- organic geometry constrained by grids, diagrams or other systems
+- ambiguity between architecture, organism, geology and data
+- restrained, diagrammatic representation rather than conventional realistic nature
+
+Whenever possible, a visual mark should correspond to actual procedural state rather than being purely decorative.
 
 - Concept visuals, world vocabulary, creature explorations and Are.na search terms: [Shadow Ecology — Visual Direction](shadow-ecology-visual-direction.md)
 - Execution and design-system rules: [Style Guide](../../STYLE-GUIDE.md)
@@ -158,9 +190,79 @@ Places where the implementation is still simpler than the concept:
 
 ---
 
+## Since Prototype 0.1
+
+Course work after the 0.1 prototype. These studies are not modules of the Project, and they are not a new thesis. The implementation above is still the world. What follows records what was explored, what it suggested, and which of those suggestions are candidates for a later prototype.
+
+### Post-0.1 course explorations
+
+**Week 06 — Spatial Systems.** One block of terrain, three questions about arrangement. Write-up: [Week 06 — Spatial Systems](../tutorials/06-spatial-systems.md).
+
+| Study | Asks | Explored |
+|---|---|---|
+| **Distribution** | Where do many things go? | One pipeline for three layers (structures, vegetation, colonies): candidates, a weight, a draw, then spacing. Random and Noise ignore the ground. Environment weights elevation, slope, moisture, light and nearness to water, and each layer weights those fields differently. Layers are placed in order, so later ones avoid structure footprints and read light after the structures' shade. Validity (water, footing, footprints) is a hard rule; a preference only makes ground less likely. |
+| **Paths** | How do points become lines? | Connection builds a network: a tree, plus loops where the tree detours too far. Flow reads the ground at every step — streams run downhill, meander, join, and widen with the flow they have gathered. Growth ignores the terrain until the line is projected onto it; with Imprint on, the line presses a groove back into the mesh. |
+| **Fields** | What is everywhere at once? | One wind field, steered by the ground (bent along slopes, faster over high ground, slower in the lee) and stirred by eddies. Wind, rain, snow and mist are different particles in that same air. Exposure reads the field at the ground — high, open, or facing the wind — as a sketch of an explicit weather term. Decay itself is not modelled. |
+
+**Week 07 — Branching Systems.** One site: a cantilevered slab, and an organism grown beside it.
+
+| Study | Asks | Explored |
+|---|---|---|
+| **Trace Growth** | How does one grammar answer an environment? | An L-system read by a 3D turtle. The same word, seed and settings are grown three ways: Free (the grammar alone), Seek light (toward the sun), or Seek shelter (toward the slab's shade). Ground and mass deflect all three. Fresh growth is pale, older growth weathers, and growth that stayed in shelter reads as lichen. |
+| **Branching Histories** | What does a world keep after an event? | That site is a shared origin, rewritten by rules. Stage 1 is the structure's fate (stable, slow decay, sudden collapse). Stage 2 is how growth and creatures respond (consolidate, expand, redistribute, contract, colonise, migrate). Stage 3 is inheritance (traces fade, persist, or new growth follows them). Every rule whose condition holds is a branch, so the tree is a possibility space, not a script. World shows what exists now; Traces shows former shade, worn paths, remains and inherited growth. |
+
+### Current conceptual discoveries
+
+Readings of the studies. Exploratory: none of these is a committed rule, and none replaces the 0.1 chain.
+
+- **Different forms, one environment.** Exploratory: different forms may perceive or value the same environment differently. Distribution gives structures, vegetation and colonies different preferences over the same fields. Fields sends wind, rain, snow, mist and exposure through one vector field. Trace Growth keeps one grammar and seed and changes only the response — Free, Seek light, Seek shelter. This sits beside [Many ways of seeing](#many-ways-of-seeing), which is about representations of one state. Here the difference would be inside the world: what a form seeks. Not a Project system.
+- **Feedback, not language.** Exploratory: architecture and creatures can interact through environmental feedback rather than language. Branching Histories sends no messages between them. A change in the slab changes shelter and rubble; growth and movement read that; lost shelter, lost growth and movement then settle into former shade, remains and worn paths. Prototype 0.1 already has a quieter version: growth casts shade, and habitat is the by-product. The study only makes that kind of feedback visible across events.
+- **Influence after decay.** Exploratory: decay or death does not necessarily end influence; traces can persist. After each event, shade that no longer falls, growth that died and ground that was walked are recorded. A later rule can erase that evidence, leave it, or let new growth take it as a route. This tries the [grammar of traces](#a-grammar-of-traces) on a single site. It is not how the prototype weathers.
+- **Legible history.** Exploratory: history can remain spatially legible after its cause disappears. The Traces view draws former shade, trails, remains and inherited growth when the standing slab, the living organism or the creatures' present path may already be gone. Prototype 0.1 remembers shelter, and architecture colour records age. Its paths and vegetation still do not ([Known gaps](#known-gaps)).
+- **Unstable categories.** Exploratory: the classification architecture / organism / environment may become unstable through behaviour and time. In the study, rubble is colonised, new growth follows former shade and dead stems, and living growth, remains and fallen mass occupy one site. Prototype 0.1 still builds those as separate systems. Whether behaviour and time should loosen the separation is open, in line with the ambiguity noted in [Visual Direction](#visual-direction), not a decision.
+
+### Project 0.2 direction
+
+0.2 would still be Shadow Ecology: the same chain, deepened. Weeks 06 and 07 are a pool to draw from. Taking something from a study means a rule that serves the chain, not a reproduction of the study.
+
+#### Confirmed foundations
+
+Held by the sections above, and not revised by the later studies:
+
+- **The chain and the tension.** [The chain](#the-chain) and the [core tension](#core-tension) are unchanged. Weathering remains the counter-process. Weather stays implicit until a later prototype decides otherwise.
+- **Time as memory.** [Time as memory](#time-as-memory) still holds, including determinism: the same settings and the same passage of time give the same world.
+- **Studies are not the Project.** Nothing in Week 06 or Week 07 amends the concept. They are options for 0.2, below.
+
+#### Promising 0.2 candidates
+
+Each is optional. Listed because it touches a known gap or an existing open question, not because the study should be ported.
+
+| Candidate | Would serve | Would not mean |
+|---|---|---|
+| **Valid ground, then preference** | A placement rule that keeps hard exclusions (water, footing, footprints) separate from soft weights, so unlikely ground thins out instead of stopping at a border | Replacing the growth grammar or the habitat rule with the Week 06 pipeline |
+| **Layers that disagree** | Structures, plants and habitat life weighting the same ground differently, and later layers reading shade the structures have cast | Scattering the Week 06 counts and forms into the world |
+| **An exposure field** | The missing explicit weather term: a wind direction read as openness, so weathering can favour some faces | Particle weather (rain, snow, mist) as a required feature |
+| **Paths that wear** | The gap that routes are rebuilt each sunset and leave no trace: a line that deepens with use, and can fade | Connection's loops, or Flow's meander, as the Project's path model |
+| **A trace that alters the ground** | The question of which traces change the world and which stay visual. Growth's imprint — a groove pressed into the mesh — is one small experiment | Grooves as a general terrain system |
+| **An occupant of habitat** | The gap that habitat is unoccupied. Trace Growth is a candidate for a form that seeks light or shelter and records age and shade in its material | Importing the L-system as the world's organism |
+| **Evidence that outlasts the event** | Former shade, remains, worn paths, and growth that follows them, so later behaviour can read environmental history | The history tree as a mode of the running world |
+
+#### Open questions / experiments
+
+These sit beside the [Prototype 0.1 questions](#open-questions--future-directions). They do not replace them.
+
+- Which candidates, if any, belong in 0.2, and in what order? One deepening of the existing chain is enough to start.
+- If something occupies habitat, does it seek shelter, light, or both — and can two forms on the same ground disagree?
+- Should weathering stay a reading of age and form, or take an exposure field as an input?
+- When structure is lost, what remains spatially legible: rubble, a scar, former shade, the life that was under it?
+- Should a later process be allowed to follow an old trace, or only the conditions of the moment?
+- How far can architecture, organism and environment blur before the world is no longer readable?
+
+---
+
 ## Open Questions / Future Directions
 
-Ordered roughly by how directly each one deepens the chain.
+Prototype 0.1 questions, ordered roughly by how directly each one deepens the chain. Questions opened by the later studies are in [Project 0.2 direction](#project-02-direction).
 
 ### Growth ↔ shade balance
 - Is there a balance point where architecture and habitat coexist, or does the world oscillate? What does the long-run share of habitat look like across noon sun heights?
@@ -175,6 +277,10 @@ Ordered roughly by how directly each one deepens the chain.
 ### Traces and memory
 - Paths as accumulated wear: routes that deepen with use and fade when abandoned.
 - Vegetation as persistent state: plants that establish, spread and die back rather than being recomputed.
+- Can water contact accumulate as erosion, deposition, moisture bands or shoreline traces?
+- Can environmental forces share a common memory-field logic without making every process behave identically?
+- Which traces should physically alter the world, and which should remain visual records?
+- Can traces become inputs to later processes, so future behaviour depends partly on environmental history?
 - One slow clock sampled by faster ones, or nested clocks per process?
 
 ### Organisms

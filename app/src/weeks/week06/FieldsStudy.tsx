@@ -444,7 +444,7 @@ export function FieldsStudy({ tabs }: { tabs: ReactNode }) {
         </InstrumentPanel>
       </div>
 
-      {learning ? <LearnTour steps={learnSteps} label="Learn · Spatial Systems · Fields" onExit={exitLearning} /> : null}
+      {learning ? <LearnTour steps={learnSteps} label="Learn · Fields" onExit={exitLearning} /> : null}
     </div>
   )
 }
