@@ -287,7 +287,7 @@ export function setEcoTerrain(terrain: EcoTerrain, state: TerrainState) {
 export type EcoWater = WaterMaterial & { extra: Record<string, IUniform> }
 
 /** 0.2's water: 0.1's bright cobalt, a little deeper with depth, lighter at the shallow edge. */
-const WATER_02 = {
+export const WATER_02 = {
   uWaterShallow: '#4466f2',
   uWaterMid: '#3155e4',
   uWaterDeep: '#2242cc',

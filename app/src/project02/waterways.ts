@@ -272,7 +272,12 @@ export function composeWaterways(natural: (x: number, z: number) => number) {
   // Each lake's bowl: below its level inside the outline, and beyond it a
   // short steep bank, so where the ground stands higher the shore is a low
   // bluff rather than a wide cut. Blended into the ground by a smooth minimum.
+  // The mesh asks for this height twice at the same point (surface, then the channel cut).
+  let cachedX = Number.NaN
+  let cachedZ = Number.NaN
+  let cachedH = 0
   const landform = (x: number, z: number) => {
+    if (x === cachedX && z === cachedZ) return cachedH
     let h = valleyed(x, z)
     for (const [k, lake] of LAKES.entries()) {
       const rho = shapes[k]!.rho(x, z)
@@ -282,6 +287,9 @@ export function composeWaterways(natural: (x: number, z: number) => number) {
       const gap = Math.max(0, blend - Math.abs(h - bowl)) / blend
       h = Math.min(h, bowl) - gap * gap * blend * 0.25
     }
+    cachedX = x
+    cachedZ = z
+    cachedH = h
     return h
   }
 

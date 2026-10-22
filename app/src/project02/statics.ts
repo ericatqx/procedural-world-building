@@ -152,12 +152,13 @@ export function createStatics(): Statics {
       const angle = (a / 8) * Math.PI * 2
       const dx = Math.cos(angle)
       const dz = Math.sin(angle)
+      // Steepest rise. atan is monotone, so the steepest slope is the max of rise/run.
       let best = 0
       for (let d = ENCLOSURE.step; d <= ENCLOSURE.reach; d += ENCLOSURE.step) {
-        const h = sample(x + dx * d, z + dz * d)
-        best = Math.max(best, Math.atan2(h - h0, d))
+        const rise = (sample(x + dx * d, z + dz * d) - h0) / d
+        if (rise > best) best = rise
       }
-      sum += smoothstep(ENCLOSURE.from, ENCLOSURE.to, (best * 180) / Math.PI)
+      sum += smoothstep(ENCLOSURE.from, ENCLOSURE.to, (Math.atan(best) * 180) / Math.PI)
       around += sample(x + dx * 0.3, z + dz * 0.3) + sample(x + dx * 0.55, z + dz * 0.55)
       // Off the island counts as a long drop: the rim is an edge too.
       const outer = Math.hypot(x + dx * 0.22, z + dz * 0.22) > LANDFORM_02.outlineRadius(Math.atan2(z + dz * 0.22, x + dx * 0.22))

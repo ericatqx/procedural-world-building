@@ -1,0 +1,46 @@
+/*
+ * Concept Lab — only what the shared instrument layer does not already cover.
+ */
+
+.concept-lab .view-tabs .tab-index {
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+}
+
+.concept-lab .view-tabs button[aria-selected='true'] .tab-index {
+  color: var(--ui-muted);
+}
+
+.concept-lab .lab-tag {
+  margin: 0;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.concept-lab .region-left {
+  bottom: calc(var(--edge) + 56px);
+}
+
+.concept-lab .lab-transport {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.concept-lab .lab-transport .segmented {
+  width: 100%;
+}
+
+.concept-lab .lab-transport .button-row .btn {
+  flex: 1;
+}
+
+.concept-lab .lab-view-mode {
+  margin-left: 10px;
+}
