@@ -118,14 +118,25 @@ export function islandRadius(angle: number): number {
 }
 
 /** Same integer always rebuilds the same land. */
-export const DEFAULT_TERRAIN_SEED = 12041
+export const DEFAULT_TERRAIN_SEED = 909387746
+
+/** Seeds offered as quick switches next to Randomize. */
+export const FEATURED_SEEDS: readonly number[] = [909387746, 67387089, 252977569, 713788852, 12041]
 
 export type TerrainLayer = NoiseLayer & { name: string }
 
-/** Tallest massif above the basement, in meters. */
-const MASSIF_MAX = 420
+/** Tallest massif above the basement, in meters. Heights are skewed low, so a few massifs stand clearly taller than the rest. */
+const MASSIF_MAX = 470
+/** Extra height for the tallest massifs, as a share of their own. */
+const TALL_BOOST = 0.28
 /** Share of a massif's height that its ridge network can carve away. */
-const RIDGE_SHARE = 0.62
+const RIDGE_SHARE = 0.55
+/**
+ * Broad recessed basins between the massifs: a low, warped field lowers the open
+ * ground (frequency is cycles across the 4 km field, depth is meters). Their floors
+ * keep part of the hills and no drainage cuts, so a basin can hold a lake.
+ */
+const BASIN = { frequency: 2, depth: 60, floorHills: 0.4 }
 
 /**
  * The layers that build the height, largest landform first.
@@ -180,8 +191,8 @@ export const TERRAIN_LAYERS: readonly TerrainLayer[] = [
     name: 'Drainage network',
     enabled: true,
     noiseType: 'perlin',
-    frequency: 4.5,
-    amplitude: 42,
+    frequency: 3.4,
+    amplitude: 28,
     weight: 1,
     shaping: 'ridged',
     shapingParam: 3,
@@ -241,8 +252,8 @@ function placeMassifs(seed: number, attempt: number): Massif[] {
       const x = (ix + 0.5 + (r(1) - 0.5) * 0.82) * cell
       const z = (iz + 0.5 + (r(2) - 0.5) * 0.82) * cell
       if (Math.hypot(x, z) > LANDSCAPE.size * 0.6) continue
-      const h = HIGHLAND.amplitude * HIGHLAND.weight * (0.3 + 0.7 * r(3) ** 1.3)
-      const radius = cell * (0.4 + 0.28 * r(4))
+      const h = HIGHLAND.amplitude * HIGHLAND.weight * (0.26 + 0.74 * r(3) ** 1.7)
+      const radius = cell * (0.36 + 0.36 * r(4))
       const aspect = Math.sqrt(1 + 0.6 * r(5))
       const heading = r(6) * TAU
       const a = radius * aspect
@@ -276,6 +287,8 @@ function seedField(seed: number): SeedField {
     massifs = placeMassifs(seed, attempt)
     if (acceptable(massifs, cos, sin)) break
   }
+  // Only the tallest massifs gain height, after the layout is accepted, so placement and the rest stay as drawn.
+  for (const m of massifs) m.h *= 1 + TALL_BOOST * smoothstep(0.62, 1, m.h / HIGHLAND.amplitude)
   return { seed, cos, sin, o, massifs }
 }
 
@@ -288,7 +301,20 @@ export function terrainSeed(): number {
 /** Offsets and turns the noise domain. The shared permutation tables stay as they are. */
 export function setTerrainSeed(seed: number): void {
   const next = Number.isFinite(seed) ? seed | 0 : DEFAULT_TERRAIN_SEED
-  if (next !== field.seed) field = seedField(next)
+  if (next !== field.seed) {
+    field = seedField(next)
+    carve = null
+  }
+}
+
+/**
+ * Lowers the ground along the world's rivers. The world sets it once its rivers
+ * exist; they are traced on the uncut ground, so it is cleared with the seed.
+ */
+export type TerrainCarve = (x: number, z: number, height: number) => number
+let carve: TerrainCarve | null = null
+export function setTerrainCarve(next: TerrainCarve | null): void {
+  carve = next
 }
 
 /** Fractal sum of simplex noise, about [-1, 1]. */
@@ -325,7 +351,7 @@ function ridged(x: number, z: number, octaves: number, ox: number, oz: number): 
   let crest = 1
   for (let i = 0; i < octaves; i += 1) {
     const n = perlin2(px + i * 17.3, pz - i * 9.1) * 1.3
-    let signal = Math.max(0, 1 - Math.sqrt(n * n + 0.02)) ** 1.5
+    let signal = Math.max(0, 1 - Math.sqrt(n * n + 0.06)) ** 1.5
     signal *= weight
     weight = clamp01(0.3 + signal * 1.6)
     if (i === 0) crest = smoothstep(0.22, 0.7, signal)
@@ -379,7 +405,9 @@ function evaluate(x: number, z: number, config: LandscapeConfig): void {
   // Mountain network: the massif's height is cut into ridges and valleys.
   const ridgeRaw = ridged(qx / (span / RIDGES.frequency), qz / (span / RIDGES.frequency), RIDGES.shapingParam, o[8]!, o[9]!)
   const ridge = clamp01((ridgeRaw - 0.24) / 0.5)
-  const relief = mass * (1 - RIDGES.weight + RIDGES.weight * ridge)
+  // Full ridge strength on the high flanks; the skirts keep a calmer, rounder surface.
+  const ridgeShare = RIDGES.weight * (0.6 + 0.4 * smoothstep(70, 230, mass))
+  const relief = mass * (1 - ridgeShare + ridgeShare * ridge)
 
   // Hills and valleys: strongest where the massifs fall away into foothills.
   const skirt = smoothstep(8, 80, mass) * (1 - smoothstep(170, 340, mass))
@@ -391,6 +419,11 @@ function evaluate(x: number, z: number, config: LandscapeConfig): void {
   const open = (1 - smoothstep(150, 380, mass)) * (1 - smoothstep(0.82, 1, t))
   const drain = channel * DRAINAGE.amplitude * DRAINAGE.weight * open
 
+  // Basins: strongest on calm ground, away from the massifs and the rim.
+  const bowlRaw = fbm(qx / (span / BASIN.frequency), qz / (span / BASIN.frequency), 2, o[3]!, o[9]!)
+  const floor = smoothstep(0.04, 0.5, -bowlRaw) * (1 - smoothstep(40, 200, mass)) * (1 - smoothstep(0.72, 0.95, t))
+  const basin = floor * BASIN.depth
+
   const basement = 82 + simplex2(px / 1700 + o[14]!, pz / 1700 + o[15]!) * 26 + simplex2(px / 640 + o[12]!, pz / 640 + o[13]!) * 8
   const grainScale = span / DETAIL.frequency
   const detail = fbm(px / grainScale, pz / grainScale, DETAIL.shapingParam, o[6]!, o[7]!) * DETAIL.amplitude * DETAIL.weight
@@ -400,7 +433,7 @@ function evaluate(x: number, z: number, config: LandscapeConfig): void {
   parts.hills = hills
   parts.drain = drain
   parts.detail = detail
-  parts.height = basement + relief + hills - drain + detail - 0.6 * LANDFORM_02.rimErosion(t, angle) * ISLAND_METERS_PER_UNIT
+  parts.height = basement + relief + hills * (1 - (1 - BASIN.floorHills) * floor) - drain * (1 - floor) - basin + detail - 0.6 * LANDFORM_02.rimErosion(t, angle) * ISLAND_METERS_PER_UNIT
 }
 
 /** The layer's own field, in [-1, 1], for the inspector preview. */
@@ -435,7 +468,7 @@ export function terrainLayerPreview(id: string, resolution = 48, config: Landsca
  */
 export function landscapeHeight(x: number, z: number, config: LandscapeConfig = LANDSCAPE): number {
   evaluate(x, z, config)
-  return parts.height
+  return carve ? carve(x, z, parts.height) : parts.height
 }
 
 export const NOISE_TYPE_LABEL: Record<NoiseType, string> = {
@@ -461,10 +494,9 @@ export type CameraPose = { position: [number, number, number]; target: [number, 
  * Three-quarter view, 37° below the horizon, from the north-west, aimed at
  * the ground. Orbit turns around this ground point.
  */
-export function overviewPose(x = 0, z = 0, config: LandscapeConfig = LANDSCAPE): CameraPose {
+export function overviewPose(x = 0, z = 0, config: LandscapeConfig = LANDSCAPE, heading = Math.atan2(9.5, 15) + Math.PI): CameraPose {
   const depression = (37 * Math.PI) / 180
   const polar = Math.PI / 2 - depression
-  const heading = Math.atan2(9.5, 15) + Math.PI
   const height = config.size * 0.6
   const ground = landscapeHeight(x, z, config)
   const back = height * Math.tan(polar)
@@ -478,14 +510,13 @@ export function overviewPose(x = 0, z = 0, config: LandscapeConfig = LANDSCAPE):
  * A closer oblique view of the same place, from the side the previous
  * camera was on. The pivot stays on the ground.
  */
-export function approachPose(x: number, z: number, yaw = Math.PI, config: LandscapeConfig = LANDSCAPE): CameraPose {
+export function approachPose(x: number, z: number, yaw = Math.PI, config: LandscapeConfig = LANDSCAPE, dist = 640, aim = 6): CameraPose {
   const limit = config.size * 0.5 - 80
   const ground = landscapeHeight(x, z, config)
-  const dist = 640
   const camX = Math.max(-limit, Math.min(limit, x + Math.sin(yaw) * dist))
   const camZ = Math.max(-limit, Math.min(limit, z + Math.cos(yaw) * dist))
-  const targetY = ground + 6
-  let camY = Math.max(ground + 300, landscapeHeight(camX, camZ, config) + 80)
+  const targetY = ground + aim
+  let camY = Math.max(ground + dist * 0.47, landscapeHeight(camX, camZ, config) + Math.min(80, dist * 0.25))
   for (let n = 0; n < 4; n += 1) {
     const along = 0.45
     const mid = landscapeHeight(camX + (x - camX) * along, camZ + (z - camZ) * along, config)
@@ -513,9 +544,8 @@ export function exploreLook(x: number, z: number, config: LandscapeConfig = LAND
   return { yaw, pitch }
 }
 
-export const EYE_HEIGHT = 1.6
-export const WALK_SPEED = 1.4
-
-/** Fast movement multiplies the walking speed by this. */
-export const FAST_WALK_FACTOR = 3
+export const EYE_HEIGHT = 1.75
+/** Explore's walking speed (m/s), and the speed while Shift is held. */
+export const WALK_SPEED = 4.2
+export const SPRINT_SPEED = 20
 export { LODS }

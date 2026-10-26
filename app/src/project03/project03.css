@@ -1,0 +1,206 @@
+/* Shadow Ecology 0.3 panel: nothing may push the panel sideways. */
+.project03 .instrument-panel,
+.project03 .instrument-body,
+.project03 .instrument-utilities {
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+.project03 .instrument-panel select,
+.project03 .instrument-panel input {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Randomize and the featured seeds lead the panel: world-wide actions, above every section. */
+.project03 .eco-world-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Clear and the four conditions in two short rows, so they always fit the panel's width. */
+.project03 .eco-conditions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.project03 .eco-conditions button {
+  min-width: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Day navigation and playback. */
+.project03 .eco-daybar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.project03 .eco-daybar .eco-day {
+  text-align: center;
+}
+
+.project03 .eco-ends {
+  font-size: 10px;
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
+.project03 .eco-playback {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.project03 .eco-play[aria-pressed='true'] {
+  border-color: var(--tone);
+  background: var(--tone);
+  color: #111111;
+}
+
+/* Living architecture: the observation card, placed each frame beside its organism (or pinned low right in Explore), in the explore map's style. */
+.project03 .organism-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: min(272px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 9px;
+  border: 1px solid var(--rule);
+  background: rgba(7, 8, 10, 0.84);
+  pointer-events: auto;
+  will-change: transform;
+}
+
+.project03 .organism-card p {
+  margin: 0;
+}
+
+.project03 .organism-card-stage {
+  color: var(--tone);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  text-align: right;
+}
+
+.project03 .organism-card-meta {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  line-height: 1.45;
+}
+
+.project03 .organism-card-now {
+  color: var(--ui-title);
+  font-size: var(--text-micro);
+  line-height: 1.45;
+}
+
+.project03 .organism-card-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 6px 0 0;
+  border-top: 1px solid var(--rule);
+  list-style: none;
+  color: var(--ui-muted);
+  font-size: var(--text-micro);
+  line-height: 1.4;
+}
+
+.project03 .organism-card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.project03 .organism-card-actions .organism-card-close {
+  margin-left: auto;
+}
+
+/* The mark on the organism itself, and the thin line from it to its card. */
+.project03 .organism-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--tone);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.project03 .organism-leader {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.project03 .organism-leader line {
+  stroke: var(--tone);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.project03 .organism-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.project03 .organism-card-title {
+  color: var(--ui-title);
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.project03 .organism-card-close {
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.project03 .organism-card-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+}
+
+.project03 .organism-card-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.project03 .organism-card-row dt {
+  color: var(--ui-muted);
+}
+
+.project03 .organism-card-row dd {
+  margin: 0;
+  color: var(--ui-title);
+}

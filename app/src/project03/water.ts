@@ -60,10 +60,10 @@ const FINE = 4
 /** The rim zone, in meters inside the island's outline, where water drains over the edge. */
 const RIM_ZONE = 90
 const MIN_COARSE_DEPTH = 0.6
-/** Ground draining into a basin, as a multiple of its surface: a summit crater has almost none, a valley lake many times its own area. */
-const MIN_CATCHMENT = { lake: 8, pool: 4 }
-const LAKE = { minArea: 3200, minDepth: 1.4, maxArea: 90000, count: 5 }
-const POOL = { minArea: 520, minDepth: 0.6, count: 5 }
+/** Ground draining into a basin, as a multiple of its surface: a summit crater has almost none, a broad basin a few times its own area, a valley lake many times. */
+const MIN_CATCHMENT = { lake: 3, pool: 2 }
+const LAKE = { minArea: 9000, minDepth: 1.4, maxArea: 360000, count: 5 }
+const POOL = { minArea: 3000, minDepth: 0.6, count: 5 }
 /** Basins measured on the fine grid: the larger ones for lakes, the smaller for pools. */
 const CANDIDATES = { lakes: 9, pools: 9 }
 const LOCAL_MARGIN = 56
@@ -152,22 +152,26 @@ class Heap {
   }
 }
 
+/** Optional output of `flood`: the cell each cell drains to (-1 for sinks), and the order cells were reached, lowest first. */
+export type FloodTrace = { down: Int32Array; order: number[] }
+
 /**
  * Priority flood. `sink` cells drain the grid; every other cell ends at the
  * lowest height water could stand at before spilling to a sink.
  */
-function flood(
+export function flood(
   heights: Float32Array,
   sink: Uint8Array,
   cols: number,
   rows: number,
   skip?: Uint8Array,
   accumulate?: Float32Array,
+  trace?: FloodTrace,
 ): Float32Array {
   const filled = new Float32Array(cols * rows).fill(Number.NaN)
   const closed = new Uint8Array(cols * rows)
   const heap = new Heap()
-  const parent = accumulate ? new Int32Array(cols * rows).fill(-1) : null
+  const parent = accumulate || trace ? new Int32Array(cols * rows).fill(-1) : null
   const order: number[] = []
   for (let i = 0; i < sink.length; i += 1) {
     if (!sink[i]) continue
@@ -202,6 +206,10 @@ function flood(
       const down = parent[cell]!
       if (down >= 0) accumulate[down]! += accumulate[cell]!
     }
+  }
+  if (trace && parent) {
+    trace.down = parent
+    trace.order = order
   }
   return filled
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { LANDSCAPE, islandRadius, landscapeHeight } from './terrain.ts'
 import type { Navigation } from './LandscapeView.tsx'
+import type { RiverSystem } from './rivers.ts'
 import { WADE_DEPTH, type WaterSystem } from './water.ts'
 import { WATER_02 } from '../project02/materials.ts'
 
@@ -29,7 +30,7 @@ function ramp(t: number): [number, number, number] {
 }
 
 /** The island from above, colored by height from the terrain field, with the outline as its edge. */
-function paintTerrain(canvas: HTMLCanvasElement, size: number, water: WaterSystem | null) {
+function paintTerrain(canvas: HTMLCanvasElement, size: number, water: WaterSystem | null, rivers: RiverSystem | null) {
   canvas.width = size
   canvas.height = size
   const ctx = canvas.getContext('2d')
@@ -72,6 +73,7 @@ function paintTerrain(canvas: HTMLCanvasElement, size: number, water: WaterSyste
   }
   if (water) paintWater(image, land, size, water)
   ctx.putImageData(image, 0, 0)
+  if (rivers) paintRivers(ctx, size, rivers)
 }
 
 const hex = (value: string): [number, number, number] => [
@@ -81,6 +83,30 @@ const hex = (value: string): [number, number, number] => [
 ]
 const MAP_SHALLOW = hex(WATER_02.uWaterShallow)
 const MAP_DEEP = hex(WATER_02.uWaterDeep)
+
+/** Rivers as lines in the same cobalt, at least a pixel and a half wide so the narrow ones still read. */
+function paintRivers(ctx: CanvasRenderingContext2D, size: number, rivers: RiverSystem) {
+  const cell = LANDSCAPE.size / size
+  const half = LANDSCAPE.size * 0.5
+  const mid = hex(WATER_02.uWaterMid)
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = `rgb(${mid[0]}, ${mid[1]}, ${mid[2]})`
+  for (const river of rivers.rivers) {
+    const nodes = river.nodes
+    for (let k = 0; k + 4 < nodes.length + 4; k += 4) {
+      const a = nodes[Math.min(k, nodes.length - 1)]!
+      const b = nodes[Math.min(k + 4, nodes.length - 1)]!
+      ctx.lineWidth = Math.max(1.5, (a.halfWidth * 2) / cell)
+      ctx.beginPath()
+      ctx.moveTo((a.x + half) / cell, (a.z + half) / cell)
+      ctx.lineTo((b.x + half) / cell, (b.z + half) / cell)
+      ctx.stroke()
+    }
+  }
+  ctx.restore()
+}
 
 /** Water in the cobalt it has in the world, deepening with depth. Each wet node adds its share of a map pixel, so small pools still show. */
 function paintWater(image: ImageData, land: Uint8Array, size: number, water: WaterSystem) {
@@ -117,10 +143,12 @@ export function ExploreMap({
   seed,
   nav,
   water,
+  rivers,
   onTeleport,
 }: {
   seed: number
   water: WaterSystem | null
+  rivers: RiverSystem | null
   nav: MutableRefObject<Navigation>
   onTeleport: (x: number, z: number) => void
 }) {
@@ -131,8 +159,8 @@ export function ExploreMap({
   const size = expanded ? EXPANDED : COMPACT
 
   useEffect(() => {
-    if (terrain.current) paintTerrain(terrain.current, size, water)
-  }, [seed, size, water])
+    if (terrain.current) paintTerrain(terrain.current, size, water, rivers)
+  }, [seed, size, water, rivers])
 
   useEffect(() => {
     const canvas = marker.current

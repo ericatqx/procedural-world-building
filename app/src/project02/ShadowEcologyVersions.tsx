@@ -26,9 +26,9 @@ function ProjectTabs({ active, onSelect }: { active: ProjectPage; onSelect: (pag
   )
 }
 
-/** One project page at a time, so only its scene runs. 0.1, 0.2, and Concept Lab stay as they are. */
+/** One project page at a time, so only its scene runs. Opens on 0.3; 0.1, 0.2, and Concept Lab stay as they are. */
 export function ShadowEcologyVersions() {
-  const [page, setPage] = useState<ProjectPage>('0.2')
+  const [page, setPage] = useState<ProjectPage>('0.3')
   const tabs = <ProjectTabs active={page} onSelect={setPage} />
   if (page === '0.1') return <ShadowEcologyProject key="0.1" tabs={tabs} about={SHADOW_ECOLOGY_ABOUT} />
   if (page === '0.3') return <ShadowEcology03 key="0.3" tabs={tabs} />
