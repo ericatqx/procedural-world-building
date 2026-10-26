@@ -9,6 +9,9 @@ A study notebook for a semester of procedural world building in the browser: wee
 - [Weekly Exercises](#weekly-exercises)
   - [Selected Studies](#selected-studies)
 - [Main Project — Shadow Ecology](#main-project--shadow-ecology)
+  - [Shadow Ecology 0.3 (in development)](#shadow-ecology-03-in-development)
+  - [Shadow Ecology 0.2](#shadow-ecology-02)
+  - [Prototype 0.1](#prototype-01)
 - [Repository Structure](#repository-structure)
 - [Running Locally](#running-locally)
 
@@ -40,6 +43,20 @@ Before Week 02: [Git and GitHub for Beginners](docs/tutorials/01-git-and-github.
 
 ## Main Project — Shadow Ecology
 
+Shadow Ecology is a procedural world in which environmental processes leave traces over time. It is developed in three iterations: Prototype 0.1 and Project 0.2 (both reviewed at midterm) are earlier iterations and remain in the repository; **0.3 is the current project, in development.** Concept, design position and history: [Shadow Ecology planning](docs/planning/shadow-ecology.md). What comes next: [roadmap](docs/planning/backlog.md).
+
+### Shadow Ecology 0.3 (in development)
+
+A larger, more physical world, and a first population of **Living Architecture**: sessile, mineralizing organisms that grow toward light and moisture, thicken under load, and shelter other life beneath their shelves. The core chain is unchanged; the Structure step is what is being redeveloped.
+
+- **Terrain, water and time.** A 4.1 km island with drainage, lakes and rivers; a weather timeline; one World Time with a Daily Cycle and an Evolution mode (World Year 0–300).
+- **Navigation and inspection.** Overview, Approach and first-person Explore; an inspection card for each organism.
+- **Living Architecture.** Several growth representations are being compared against one brief. **No approach is finalized**; `overhang3` is the working reference form. Findings, failures and open questions: [Living Architecture experiments](docs/analysis/living-architecture-experiments.md).
+- **Precedents.** What has been studied, what is named and what is only proposed: [Precedent Research](docs/planning/shadow-ecology.md#precedent-research).
+- **Not yet rebuilt in 0.3:** vegetation and habitat, creatures.
+
+Code: [`app/src/project03/`](app/src/project03/). No 0.3 screenshots are in `docs/images/` yet.
+
 ### Shadow Ecology 0.2
 
 A procedural world where environmental processes leave traces over time.
@@ -69,9 +86,10 @@ The first prototype established the original relationship: architecture grows to
 
 ### References
 
-- Concept, rules and known gaps: [Shadow Ecology planning](docs/planning/shadow-ecology.md)
-- Visual direction: [Style Guide](STYLE-GUIDE.md)
-- Code: [`app/src/project02/`](app/src/project02/) (0.2) · [`app/src/project/`](app/src/project/) (0.1)
+- Concept, rules, 0.3 status and precedents: [Shadow Ecology planning](docs/planning/shadow-ecology.md)
+- Living Architecture results: [experiments](docs/analysis/living-architecture-experiments.md) · What happens next: [roadmap](docs/planning/backlog.md)
+- Visual direction: [Visual Direction](docs/planning/shadow-ecology-visual-direction.md) · [Style Guide](STYLE-GUIDE.md)
+- Code: [`app/src/project03/`](app/src/project03/) (0.3) · [`app/src/project02/`](app/src/project02/) (0.2) · [`app/src/project/`](app/src/project/) (0.1)
 
 ---
 
@@ -80,13 +98,14 @@ The first prototype established the original relationship: architecture grows to
 ```text
 app/                   Vite + React + TypeScript + Three.js (React Three Fiber)
   src/weeks/week02–07  Weekly exercise pages
+  src/project03/       Shadow Ecology 0.3 (in development)
   src/project02/       Shadow Ecology 0.2
   src/project/         Shadow Ecology 0.1 prototype
   src/shared/          Noise, shaders, snapshot persistence, UI system
 docs/
   tutorials/           Weekly study notes (Week 01–07) and template
-  analysis/            Experiments, observations and critique
-  planning/            Shadow Ecology plan and early backlog
+  analysis/            Experiments, observations and critique (incl. Living Architecture experiments)
+  planning/            Shadow Ecology plan, visual direction and roadmap
   images/              Weekly, README and project screenshots
   media/
     project/           Shadow Ecology video media
