@@ -2,23 +2,26 @@ import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@fontsource-variable/unbounded'
 import './index.css'
+import { adoptLegacyPreviewPath, normalizePath } from './preview/route.ts'
 
-// Each site loads only its own code: /preview never downloads the weekly exercises, and the existing site never downloads the preview.
-const App = lazy(() => import('./App.tsx'))
+// Shadow Ecology website is the product. Weekly exercises remain reachable via /open/week0N from Project.
 const PreviewSite = lazy(() => import('./preview/PreviewSite.tsx').then((m) => ({ default: m.PreviewSite })))
 
-/** /preview is the website prototype (preview/); every other address is the existing site. */
-const preview = window.location.pathname === '/preview' || window.location.pathname.startsWith('/preview/')
-// (The site is black from the first paint: until its code has arrived nothing of it is mounted, and the document showed the exercises' grey.)
-if (preview) {
-  document.documentElement.style.background = '#000'
-  document.body.style.background = '#000'
-}
-// The preview's world is fetched at once, alongside the site's own code, rather than after it has rendered.
-if (preview && !/^\/preview\/(project|open)/.test(window.location.pathname)) void import('./project03/ShadowEcology03.tsx')
+adoptLegacyPreviewPath()
+
+const path = normalizePath(window.location.pathname)
+
+// Black from the first paint so the document never flashes the old exercise-shell grey.
+document.documentElement.style.background = '#000'
+document.body.style.background = '#000'
+
+// Prefetch the world with the site shell, except on Project / archive pages that do not need it immediately.
+if (!/^\/(project|open)(\/|$)/.test(path)) void import('./project03/ShadowEcology03.tsx')
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Suspense fallback={null}>{preview ? <PreviewSite /> : <App />}</Suspense>
+    <Suspense fallback={null}>
+      <PreviewSite />
+    </Suspense>
   </StrictMode>,
 )

@@ -6,6 +6,18 @@
     "target": "lab",
     "public": "app/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "redirects": [
+      {
+        "source": "/preview",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/preview/:path*",
+        "destination": "/:path",
+        "type": 301
+      }
+    ],
     "rewrites": [
       {
         "source": "**",

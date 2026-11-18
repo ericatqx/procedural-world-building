@@ -2,7 +2,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { go, href } from './route.ts'
 
 /**
- * LIVE PRESENTATION MODE. /preview/present is an opening screen with one action, Start. From then on the presentation lives on the real site: a
+ * LIVE PRESENTATION MODE. /present is an opening screen with one action, Start. From then on the presentation lives on the real site: a
  * small cue panel over each page (its stop, one idea, a line of narration for the room, what to show), with Previous / Next that take the site to
  * the stop's page or section, a collapse to a small marker, and Exit. The stop and the collapse are kept in this tab's session, so they follow the
  * presenter across pages and Labs. Outside Presentation Mode nothing of this renders and no navigation is touched; inside it, nothing moves the
@@ -107,7 +107,7 @@ function visit(i: number) {
   window.setTimeout(scroll, 60)
 }
 
-/** /preview/present: the opening screen. */
+/** /present: the opening screen. */
 export function PresentPage() {
   return (
     <main className="pv-present">

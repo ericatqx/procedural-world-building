@@ -77,7 +77,7 @@ function SectionHead({ n, title, intro }: { n: string; title: string; intro: str
  * was, with Formation held where it stood rather than replayed. Arriving any other way (from the navigation, Home or Explore) it opens fresh.
  */
 const memory: { scroll: number; position: number; leftTo: string } = { scroll: 0, position: -1, leftTo: '' }
-const returning = () => memory.position >= 0 && memory.leftTo.startsWith('/preview/open/')
+const returning = () => memory.position >= 0 && (memory.leftTo.startsWith('/open/') || memory.leftTo.startsWith('/preview/open/'))
 
 const SPEEDS = [0.5, 1, 1.5, 2] as const
 
