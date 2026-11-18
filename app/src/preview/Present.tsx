@@ -229,6 +229,24 @@ export function PresentationCue({ page }: { page: string }) {
       delete document.documentElement.dataset.presenting
     }
   }, [at])
+  // ← / → step notes only while Presentation Mode is on (same as Prev / Next; never navigates). Capture + stopImmediatePropagation so Explore walk does not also strafe.
+  useEffect(() => {
+    if (at === null) return
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+      const t = event.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      const i = state.at
+      if (i === null) return
+      if (event.key === 'ArrowLeft' && i > 0) set({ at: i - 1 })
+      if (event.key === 'ArrowRight' && i < STOPS.length - 1) set({ at: i + 1 })
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [at])
   // (On a smaller window a moved panel is brought back inside it.)
   useEffect(() => {
     const fit = () => {
