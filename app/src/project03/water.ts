@@ -68,7 +68,11 @@ const POOL = { minArea: 3000, minDepth: 0.6, count: 5 }
 const CANDIDATES = { lakes: 9, pools: 9 }
 const LOCAL_MARGIN = 56
 /** The surface mesh reaches this far below the surface at the shore, so the terrain, not the polygon, cuts the shoreline. */
-const SHORE_REACH = -0.8
+// Round 07: the lake surface reaches further under its banks (to where the ground stands 2 m over the water, from 0.8 m), so its grid-clipped edge
+// is never left above a drawn bank that dips below the true one: that edge showed as stair-stepped teeth along lake shores up close.
+const SHORE_REACH = -2
+/** Metres below a lake's surface beyond which ground the lake's flood did not reach is a gorge it drains into, not its own shallows (buildWaterGeometry). */
+const OUTLET_DROP = 1.5
 
 const NEIGHBORS: readonly (readonly [number, number])[] = [
   [1, 0],
@@ -488,20 +492,39 @@ export function buildWaterGeometry(water: WaterSystem): BufferGeometry {
     const { grid, level } = body
     const { cols, rows, step, x0, z0, wet } = grid
     const value = new Float32Array(cols * rows).fill(SHORE_REACH - 2)
+    // Another body's water at a node (a neighbouring lake or pool, at its own level).
+    const others = water.bodies.filter((other) => other !== body && other.bounds.maxX >= x0 && other.bounds.minX <= x0 + (cols - 1) * step && other.bounds.maxZ >= z0 && other.bounds.minZ <= z0 + (rows - 1) * step)
+    const wetElsewhere = (x: number, z: number) =>
+      others.some((other) => {
+        const g = other.grid
+        const oi = Math.round((x - g.x0) / g.step)
+        const oj = Math.round((z - g.z0) / g.step)
+        return oi >= 0 && oj >= 0 && oi < g.cols && oj < g.rows && g.wet[oj * g.cols + oi]! > 0
+      })
     // Dry nodes within two nodes of the water take the bank's height, so the contour lands on the shore.
     for (let j = 0; j < rows; j += 1) {
       for (let i = 0; i < cols; i += 1) {
         if (wet[j * cols + i]! <= 0) continue
-        for (let dj = -2; dj <= 2; dj += 1) {
-          for (let di = -2; di <= 2; di += 1) {
+        for (let dj = -3; dj <= 3; dj += 1) {
+          for (let di = -3; di <= 3; di += 1) {
             const ni = i + di
             const nj = j + dj
             if (ni < 0 || nj < 0 || ni >= cols || nj >= rows) continue
             const index = nj * cols + ni
             if (wet[index]! > 0) continue
             if (value[index]! > SHORE_REACH - 2) continue
-            const d = level - landscapeHeight(x0 + ni * step, z0 + nj * step)
-            value[index] = Math.min(d, -0.02)
+            const x = x0 + ni * step
+            const z = z0 + nj * step
+            const d = level - landscapeHeight(x, z)
+            // Ground below this surface that the flood did not reach. Round 08B: two cases, told apart.
+            //   Another body's water (a neighbouring lake at its own level): left to that body. Covering it as well laid this lake's surface, as
+            //   zero-depth (pale) water, over the neighbour's: the pale strips and blocks, and where the two surfaces met, flickering dashes.
+            //   A shallow channel at a river's mouth (carved below the lake after it was filled): covered by the lake at its real depth, not at
+            //   zero depth, which drew it as pale sand-coloured water.
+            //   A deep cut (the outlet's gorge, the river already metres below the lake): left out, as Round 07 did; covering it hung the lake
+            //   over the gorge as a flat shelf.
+            if (d > 0 && (d > OUTLET_DROP || wetElsewhere(x, z))) continue
+            value[index] = d
           }
         }
       }

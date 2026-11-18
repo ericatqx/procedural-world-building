@@ -1,9 +1,15 @@
+import { styleScalars } from './visualStyle.ts'
+import { paintScene, paintUniforms } from './visualStudyPainting.ts'
+import { worldsScene, worldsUniforms } from './visualStudyWorlds.ts'
+import { skyAt } from './studySky.ts'
+import { StudySky } from './StudySky.tsx'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import {
   AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
+  CanvasTexture,
   Color,
   DataTexture,
   DirectionalLight,
@@ -19,10 +25,14 @@ import {
   Points,
   RedFormat,
   ShaderMaterial,
+  Sprite,
+  type SpriteMaterial,
   Vector2,
   Vector3,
 } from 'three'
 import { smoothstep } from '../project02/core.ts'
+import { sunAt } from '../project/sun.ts'
+import { sunDirection } from '../shared/sun.ts'
 import { environment, stepEnvironment, windBaseAt } from './environment.ts'
 import { livingArchitecture } from './livingArchitecture.ts'
 import { islandRadius, landscapeHeight } from './terrain.ts'
@@ -35,6 +45,8 @@ const DAYLIT = new Color('#0a0c0f')
 const MISTY = new Color('#171a1e')
 // The haze: a soft neutral grey that mist and rain draw the distant land into (the void behind stays black); it dims with the day.
 const HAZE = new Color('#454b52')
+/** The air's colour by day: distant land fades into it (aerial perspective) instead of into the black field. Cooler and lighter under clear sky. */
+const DAY_AIR = new Color('#8b9298')
 const scratch = new Color()
 
 /**
@@ -73,7 +85,7 @@ export function Sky({ place, readout }: { place: MutableRefObject<Vector3>; read
     }
   }, [gl, scene])
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     stepEnvironment(delta)
     // Held on every frame: the Canvas configures the renderer's shadows itself and must not be the last word.
     if (!gl.shadowMap.enabled) {
@@ -97,11 +109,20 @@ export function Sky({ place, readout }: { place: MutableRefObject<Vector3>; read
       light.target.updateMatrixWorld()
       light.color.set('#fff8ee')
       // High sun is the flattest light: take a little off its brightness, and below, a little of the fill, so slopes keep their form.
-      light.intensity = Math.PI * 0.95 * sun.direct * (1 - 0.14 * smoothstep(30, 58, sun.elevation))
-      light.castShadow = shadows && sun.direct > 0.02
+      // Tonal hierarchy: sunlit faces a step brighter, and (below) the fill a step lower and cooler, so shade reads deeper and forms more sculptural, without saturation.
+      light.intensity = Math.PI * 1.06 * sun.direct * (1 - 0.14 * smoothstep(30, 58, sun.elevation)) * styleScalars.key
+      // Round 08B: the shadow map stays on through sunset and sunrise (the sun's own light fades the shadows, visualStudyWorlds.ts › stageLit). Turning
+      // castShadow off and on at the horizon changed every material's shader (three.js compiles the shadow count into it), so each sunset and
+      // sunrise recompiled the whole scene at once: a stall and a sudden switch. Below the horizon the map is simply no longer redrawn.
+      light.castShadow = shadows
+      const sunUp = sun.elevation > -3.2
       // Cloud turns the sun into sky light: the shadows fade and their edges widen, long before the sun is gone.
-      light.shadow.intensity = Math.max(0, 0.95 * (1 - cloud * 0.95))
-      light.shadow.radius = 1 + 7 * cloud
+      // (Round 15: the cast shadows fade with cloud only from a moderate cover upward, and fully at a full overcast. Fading them linearly from the first
+      // wisp of cloud halved them under the timeline's moderate overcasts (Day 3 of the default seed, cloud about 0.54, at 16:00), and the island's
+      // lavender shadows were gone though the sun was still out. The sun's path is the same every day; the weather is what differs.)
+      const shadowFade = smoothstep(0.35, 1.0, cloud)
+      light.shadow.intensity = Math.max(0, 0.96 * (1 - 0.95 * shadowFade))
+      light.shadow.radius = 1 + 7 * shadowFade
       const bucket = Math.round(Math.log2(reach) * 4)
       if (bucket !== extent.current) {
         extent.current = bucket
@@ -116,10 +137,24 @@ export function Sky({ place, readout }: { place: MutableRefObject<Vector3>; read
         cam.updateProjectionMatrix()
       }
       // Redraw the shadow map only when what it shows has changed; while terrain is still streaming in, a few times a second.
-      const signature = `${livingArchitecture.version}|${light.castShadow}|${Math.round(dx * 300)}|${Math.round(dy * 300)}|${Math.round(dz * 300)}|${fx}|${fz}|${bucket}`
-      const now = state.clock.elapsedTime
+      // Round 08C: the sun's step that asks for a redraw, by how far it moves a shadow. The map used to wait for 1/300 (about 0.2 degrees) and redraw
+      // at most four times a second: at a low sun a 0.2 degree step moves a mountain's shadow tip by a hundred metres or more, so evening shadows
+      // jumped across the land instead of sliding. Now about 0.02 degrees, and up to ten redraws a second while the sun is moving (only then: a
+      // still sun asks for none).
+      const sunStep = 3000
+      const signature = `${livingArchitecture.version}|${light.castShadow}|${Math.round(dx * sunStep)}|${Math.round(dy * sunStep)}|${Math.round(dz * sunStep)}|${fx}|${fz}|${bucket}`
+      // (Wall-clock seconds, not the scene clock: R3F restarts its clock at zero whenever the frame loop resumes (the /preview site pauses the world
+      // behind a Lab), and `now - drawn.at` then stayed negative for minutes: the shadow map was never redrawn, the stale one no longer matched the
+      // sun, and the island's lavender cast shadows vanished after a visit to a Lab.)
+      const now = performance.now() / 1000
       const streaming = readout.pending > 0 && now - drawn.current.at > 0.4
-      if (light.castShadow && (signature !== drawn.current.signature || streaming)) {
+      // At most a few redraws a second: the architecture changes often during Evolution, and each redraw of the 4096 map is a frame's cost.
+      const sunMoved = signature.split('|').slice(2, 5).join('|') !== drawn.current.signature.split('|').slice(2, 5).join('|')
+      // While the day plays fast (20x and 60x: the sun crosses a degree or more a second), every frame the sun has moved, so shadows slide rather than
+      // step (measured here: a redraw added no measurable frame time); otherwise every 0.1 s, a tenth of a degree at 5x.
+      const fast = environment.controls.playing && environment.controls.speed >= 20
+      const wait = sunMoved ? (fast ? 0 : 0.1) : 0.25
+      if (light.castShadow && sunUp && now - drawn.current.at >= wait && (signature !== drawn.current.signature || streaming)) {
         gl.shadowMap.needsUpdate = true
         drawn.current = { signature, at: now }
       }
@@ -127,22 +162,56 @@ export function Sky({ place, readout }: { place: MutableRefObject<Vector3>; read
     if (moon.current) moon.current.intensity = Math.PI * 0.14 * (1 - sun.daylight) * (1 - 0.5 * cloud)
     // The fill and the sky keep the shaded faces readable, and a little more so under cloud, when the sun's contrast is gone.
     // The light the sun gives up is given back by the sky from every side, so overcast looks soft and even, not just dim.
-    if (fill.current) fill.current.intensity = Math.PI * 0.36 * (0.1 + 0.9 * sun.daylight) * (1 + 0.9 * cloud) * (1 - 0.55 * smoothstep(28, 58, sun.elevation) * (1 - cloud))
+    if (fill.current) fill.current.intensity = Math.PI * 0.32 * (0.1 + 0.9 * sun.daylight) * (1 + 0.9 * cloud) * (1 - 0.55 * smoothstep(28, 58, sun.elevation) * (1 - cloud)) * styleScalars.fill
     // 0.2's sky fill: a little by day, more by night (so the land keeps a faint readable form), and more again under cloud.
     if (sky.current) sky.current.intensity = 0.3 - 0.2 * sun.daylight + 0.35 * cloud * sun.daylight
     gl.toneMappingExposure = environment.state.exposure
     // The field is the void at every hour; weather lifts it by a shade, and the fog follows it, a little lighter in mist and rain.
     color.copy(VOID).lerp(DAYLIT, sun.daylight * 0.6).lerp(MISTY, mist * 0.35)
-    if (scene.background instanceof Color) scene.background.copy(color)
-    if (scene.fog instanceof Fog) scene.fog.color.copy(scratch.copy(color).lerp(HAZE, Math.min(1, mist + rain * 0.15) * (0.25 + 0.75 * sun.daylight)))
+    // The field behind the island is pure black at every hour, as in 0.1; the shade worked out above still sets the fog's colour.
+    if (scene.background instanceof Color) scene.background.set('#000000')
+    // The studies with a background of their own (StudySky.tsx, coloured by the hour in studySky.ts): the Atmospheric Painting's and the Stylized world's
+    // distance fades into their own air, whose light and shade colours their surfaces also take. The Graphic Diorama sits on a plain dark ground. (The
+    // Illustrated Atlas has the black stage of Clear Ink.)
+    const study = paintScene.on ? skyAt('paint', environment.controls.hour) : worldsScene.stylized ? skyAt('stylized', environment.controls.hour) : null
+    worldsUniforms.uWDay.value = sun.daylight
+    worldsUniforms.uWSun.value.set(sun.direction[0], sun.direction[1], sun.direction[2])
+    worldsUniforms.uWElev.value = sun.elevation
+    worldsUniforms.uWCloud.value = cloud
+    if (worldsScene.stylized && study) {
+      worldsUniforms.uIwKey.value.copy(study.key)
+      worldsUniforms.uIwShade.value.copy(study.shade)
+      worldsUniforms.uIwHaze.value.copy(study.haze)
+      worldsUniforms.uIwNight.value = study.night
+    }
+    if (paintScene.on && study) {
+      paintUniforms.uPtKey.value.copy(study.key)
+      paintUniforms.uPtShade.value.copy(study.shade)
+      paintUniforms.uPtSky.value.copy(study.zenith)
+      paintUniforms.uPtHaze.value.copy(study.haze)
+      paintUniforms.uPtNight.value = study.night
+    }
+    if (study && scene.background instanceof Color) scene.background.copy(study.below)
+    if (worldsScene.diorama && scene.background instanceof Color) scene.background.setRGB(0.006, 0.009, 0.01)
+    if (study && scene.fog instanceof Fog) scene.fog.color.copy(study.haze)
+    else if (worldsScene.diorama && scene.fog instanceof Fog) scene.fog.color.setRGB(0.008, 0.012, 0.013)
+    else if (worldsScene.dioramaBlack && scene.fog instanceof Fog) scene.fog.color.setRGB(0, 0, 0)
+    else if (scene.fog instanceof Fog) {
+      scene.fog.color.copy(scratch.copy(color).lerp(DAY_AIR, 0.8 * sun.daylight ** 1.5 * (1 - 0.3 * cloud)).lerp(HAZE, Math.min(1, mist + rain * 0.15) * (0.25 + 0.75 * sun.daylight)))
+      // The Ink style's air is a neutral grey (visualStyle.ts; 0 leaves it as it was).
+      const f = scene.fog.color
+      const grey = (f.r + f.g + f.b) / 3
+      f.lerp(scratch.setRGB(grey, grey, grey), styleScalars.fogNeutral)
+    }
   })
 
   return (
     <>
       <directionalLight ref={key} castShadow shadow-mapSize={[4096, 4096]} shadow-bias={-0.0004} shadow-normalBias={2} />
       <directionalLight ref={moon} position={[-900, 1600, 1100]} color="#c6cede" />
-      <directionalLight ref={fill} position={[2600, 1300, 1900]} color="#c4bdb2" />
-      <hemisphereLight ref={sky} args={['#c2beb6', '#4a443b', 0.32]} />
+      <directionalLight ref={fill} position={[2600, 1300, 1900]} color="#bcbfc0" />
+      <hemisphereLight ref={sky} args={['#c2c0ba', '#3f3a33', 0.32]} />
+      <StudySky />
     </>
   )
 }
@@ -217,7 +286,11 @@ void main() {
   p.y = max(p.y, ground + 0.02);
   vec2 local = xz - uCenter.xz;
   // Individually visible near the camera, gradually only a texture of rain farther off, and a faint one from Overview.
-  float view = 1.0 - 0.55 * smoothstep(200.0, 3000.0, dist);
+  // Phase 1 QA: from the island-wide views the streaks are gone. Each is a pale line a few pixels long: on the pale land it cannot be seen, so
+  // from Overview the rain showed only as scattered white dashes over the dark lakes (and the black field), which read as a rendering fault on
+  // the water, not as weather. Near the ground, where streaks are dense and visibly falling, they are as they were; from afar the rain is told
+  // by its light (the overcast softening the shadows) and by the panel's weather note.
+  float view = 1.0 - smoothstep(260.0, 1500.0, dist);
   vFade = (1.0 - smoothstep(0.38 * uBox.x, 0.5 * uBox.x, length(local))) * smoothstep(0.0, 0.08, f) * islandFade(xz) * view * (0.3 + 0.7 * h2);
   vTail = aTail;
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
@@ -509,7 +582,7 @@ export function WindTracers() {
     return (a[o]! * (1 - fx) + a[o + 1]! * fx) * (1 - fz) + (a[o + GRID]! * (1 - fx) + a[o + GRID + 1]! * fx) * fz
   }
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     const object = lines.current
     if (!object) return
     const on = environment.controls.windField
@@ -519,7 +592,8 @@ export function WindTracers() {
     const dt = Math.min(delta, 0.05)
     // Re-tabulate the terrain's effect on the wind when the wind has changed, or the first time.
     const key = `${wind.x.toFixed(2)}|${wind.z.toFixed(2)}|${wind.speed.toFixed(1)}`
-    const now = state.clock.elapsedTime
+    // (Wall-clock seconds: the scene clock restarts at zero when the frame loop resumes.)
+    const now = performance.now() / 1000
     if (key !== field.key && now - field.at > 0.3) {
       for (let j = 0; j < GRID; j += 1) {
         for (let i = 0; i < GRID; i += 1) {
@@ -591,4 +665,112 @@ export function WindTracers() {
     color.needsUpdate = true
   })
   return <lineSegments ref={lines} geometry={geometry} material={material} frustumCulled={false} visible={false} renderOrder={4} />
+}
+
+/** How far from the island's centre the stylized sun hangs (metres): outside the island (about 2 km across its widest), inside the Overview camera's distance. */
+const ORRERY_R = 2900
+const ORRERY_CENTRE = new Vector3(0, 60, 0)
+
+/**
+ * THE STYLIZED SUN (Round 08C), for the Black Stage's Overview and Approach. A flat disc cut from warm paper, hung over the diorama at the sun's true
+ * direction from the island's centre (the same sun that places the key light and its shadows, not held above the horizon, so it sets), always facing
+ * the viewer like a card: a crisp disc and a fine ring a little apart from it, no glow, no light of its own. Its colour follows the hour, pale
+ * parchment by day turning amber as it nears the horizon, and it sinks below the horizon and is gone at night. About a degree and a half across at any
+ * distance: a quiet mark of where the light comes from, not a light source. Depth-tested, so the island hides it when it is behind. (Round 08B's path
+ * arc is gone: it read as a stray line.) Explore keeps its own sky disc, SunDisc below.
+ */
+export function SunOrrery() {
+  const camera = useThree((state) => state.camera)
+  const disc = useRef<Sprite>(null)
+  const texture = useMemo(() => {
+    const size = 256
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const g = canvas.getContext('2d')!
+    const c = size / 2
+    // The fine ring, set a little apart (a printed sun mark rather than a glowing ball).
+    g.beginPath()
+    g.arc(c, c, size * 0.44, 0, Math.PI * 2)
+    g.strokeStyle = 'rgba(255,255,255,0.7)'
+    g.lineWidth = size * 0.016
+    g.stroke()
+    // The disc, flat, with a crisp edge.
+    g.beginPath()
+    g.arc(c, c, size * 0.3, 0, Math.PI * 2)
+    g.fillStyle = 'rgba(255,255,255,1)'
+    g.fill()
+    const t = new CanvasTexture(canvas)
+    t.anisotropy = 4
+    return t
+  }, [])
+  useEffect(() => () => texture.dispose(), [texture])
+  const colour = useMemo(() => ({ day: new Color('#F2E4C4'), low: new Color('#E7A867') }), [])
+  useFrame(() => {
+    const s = disc.current
+    if (!s) return
+    const { sun } = environment.state
+    const up = smoothstep(-2.5, 1.5, sun.elevation)
+    const fade = up * (1 - 0.5 * environment.state.cloud) * smoothstep(ORRERY_R * 0.9, ORRERY_R * 1.25, camera.position.distanceTo(ORRERY_CENTRE))
+    s.visible = worldsScene.dioramaBlack && fade > 0.01
+    if (!s.visible) return
+    const [dx, dy, dz] = sunDirection(sunAt(environment.controls.hour, environment.controls.noonElevation).azimuth, sun.elevation)
+    s.position.set(ORRERY_CENTRE.x + dx * ORRERY_R, ORRERY_CENTRE.y + dy * ORRERY_R, ORRERY_CENTRE.z + dz * ORRERY_R)
+    s.scale.setScalar(s.position.distanceTo(camera.position) * 0.04)
+    const material = s.material as SpriteMaterial
+    material.opacity = fade
+    material.color.copy(colour.low).lerp(colour.day, smoothstep(2, 22, sun.elevation))
+  })
+  return (
+    <sprite ref={disc} renderOrder={2} frustumCulled={false} visible={false}>
+      <spriteMaterial map={texture} transparent depthWrite={false} fog={false} toneMapped={false} />
+    </sprite>
+  )
+}
+
+/** How far out the sun is drawn (metres): beyond any ground in Explore, inside its far plane. */
+const SUN_RANGE = 7200
+
+/**
+ * The sun as a small bright disc (no glow since Round 07), for Explore only, where the sky is in view. It is drawn where the light
+ * comes from (the same `sun.direction` that places the key light, so the Time of Day control moves it), and it is only a picture:
+ * it adds no light and casts no shadow. It is depth-tested, so a mountain in front of it hides it, and it fades out as the sun
+ * reaches the horizon and is gone below it.
+ */
+export function SunDisc() {
+  const camera = useThree((state) => state.camera)
+  const sprite = useRef<Sprite>(null)
+  const texture = useMemo(() => {
+    const size = 128
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const g = canvas.getContext('2d')!
+    const ramp = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+    // Round 07: the disc only, with a soft-edged rim a pixel or two wide; the glow around it (a halo out to the sprite's edge) is gone.
+    ramp.addColorStop(0, 'rgba(255,250,238,1)')
+    ramp.addColorStop(0.11, 'rgba(255,248,232,1)')
+    ramp.addColorStop(0.135, 'rgba(255,244,224,0)')
+    ramp.addColorStop(1, 'rgba(255,240,215,0)')
+    g.fillStyle = ramp
+    g.fillRect(0, 0, size, size)
+    return new CanvasTexture(canvas)
+  }, [])
+  useEffect(() => () => texture.dispose(), [texture])
+  useFrame(() => {
+    const s = sprite.current
+    if (!s) return
+    const { direction } = environment.state.sun
+    const fade = smoothstep(-0.02, 0.07, direction[1]) * (1 - 0.6 * environment.state.cloud)
+    s.visible = fade > 0.01
+    if (!s.visible) return
+    s.position.set(camera.position.x + direction[0] * SUN_RANGE, camera.position.y + direction[1] * SUN_RANGE, camera.position.z + direction[2] * SUN_RANGE)
+    s.scale.setScalar(SUN_RANGE * 0.09)
+    s.material.opacity = fade
+  })
+  return (
+    <sprite ref={sprite} renderOrder={-1} frustumCulled={false} visible={false}>
+      <spriteMaterial map={texture} transparent depthWrite={false} blending={AdditiveBlending} fog={false} toneMapped={false} />
+    </sprite>
+  )
 }

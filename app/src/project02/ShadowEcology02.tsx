@@ -852,9 +852,11 @@ export function ShadowEcology02({ tabs }: { tabs?: ReactNode }) {
             actions={<LearnToggle label="Guide" active={guiding} onChange={setGuiding} />}
           />
           {tabs}
-          <p className="project-tag">
-            Terrain → light, weather, water → architecture, vegetation → shelter, habitat → creatures, movement → traces → what grows next
-          </p>
+          {tabs ? null : (
+            <p className="project-tag">
+              Terrain → light, weather, water → architecture, vegetation → shelter, habitat → creatures, movement → traces → what grows next
+            </p>
+          )}
         </div>
 
         <InstrumentPanel label="Shadow Ecology 0.2" utilities={<PageSnapshots adapter={snapshots} />}>

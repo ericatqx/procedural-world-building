@@ -63,6 +63,97 @@ Scale and legibility, the main open problem for this phase, are in [Visual Direc
 
 **Exploration status (0.3).** Several growth representations have been built and compared against the same brief (connected at every age, a substantial primary mass, layered shelves, supported overhangs, negative space that results from growth). None is adopted as final; `overhang3` is the working reference form. What each did and what is unknown: [Living Architecture experiments](../analysis/living-architecture-experiments.md). References and how they are used: [Precedent Research](#precedent-research).
 
+### The Overhang as an organism (biology)
+
+The Overhang is the working reference form of Living Architecture. This section fixes what kind of organism it is, so that its shape, its lifecycle, its habitats and its relations to the creatures all follow from one set of rules. It is a **fictional sessile biomineralizing organism**: a made-up species that borrows real mechanisms and extends them. Where a statement is real biology it is marked *real*; where it is invented it is marked *fiction*.
+
+**Inspirations and what each is used for**
+
+| Source | *Real* mechanism | Used here (*fiction* where it goes beyond the real) |
+|---|---|---|
+| Reef-building corals and their skeletons | *Real:* a thin living tissue (polyps) deposits a calcium-carbonate skeleton under itself; the skeleton outlives the tissue and is built up in layers; the living part is a skin on a durable frame. Corals take up calcium and carbonate from seawater, not from food | The Overhang's living tissue is a skin on a mineral skeleton; the layering is the strata; the skeleton persists as ruins. *Fiction:* it does this on land, from ground and rain water, at the scale of towers |
+| Lichens and coral–algae symbiosis | *Real:* a host shelters photosynthetic partners (algae, cyanobacteria, dinoflagellates) that supply it with sugars; the host's growth is limited by the light its partners receive and by water | Light is the Overhang's **energy** source, captured by symbionts in its skin: lit surfaces are the productive ones. *Fiction:* the symbionts are what lets a tower-sized mass live on sunlight alone |
+| Plant growth responses | *Real:* shoots grow toward light and away from shade (phototropism, shade avoidance); wind and load thicken stems and shorten them (thigmomorphogenesis, reaction wood); roots follow water and nutrients; crowded plants compete for height | The tower rises where light competition rewards height; the cantilever shortens and thickens where wind loads it; roots, toes and footing spread toward water and minerals; crowding redirects lateral growth |
+| Layered fungi (bracket fungi, stromatolite-like mats) | *Real:* shelf-like fruiting bodies add a layer each season, grow outward from a base, and are sheltered underneath; stromatolites are layered mineral–microbe deposits | The cantilever is a bracket built layer on layer from the tower; the undercroft is the sheltered underside |
+
+**What the organism needs**
+
+| Need | Role | Source in the world | Notes |
+|---|---|---|---|
+| **Sunlight** | the only *energy* source (through its symbionts) | direct light on its surface; shade and crowding reduce it | *Real:* photosynthetic symbiosis. Light powers deposition of the skeleton; without it the organism cannot grow, whatever the minerals |
+| **Water** | the medium that carries dissolved minerals and keeps the living skin and symbionts alive | rain, runoff, moisture of the ground, proximity to lakes and rivers | wet ground widens the footing and speeds growth; drought stops it |
+| **Dissolved minerals** (calcium, carbonate, silica) | **structural material** for the skeleton, never energy | ground and water chemistry, shore deposits, what weathered tissue and dead organisms return | *Real:* skeleton-builders take their mineral from the water around them. Minerals set how much can be built, not whether the organism lives |
+| **Nutrients** (nitrogen, phosphorus) | build and repair the living tissue | soil, creature droppings, decomposed litter | poor supply: slow growth, thin tissue, a smaller form |
+
+**How the form follows from the budget (fiction on top of the above).** The tower is the organism's route to light. The cantilever is a bracket that extends its lit surface outward, built only as far as its skeleton can carry its own load. The supports (piers, fins, rib) are mineral reinforcement laid down where the load goes (*real:* bone and wood thicken where they are stressed). Nothing in the form is placed: each part is paid for by light, water, minerals and nutrients, and limited by wind and crowding.
+
+**Habitat-dependent morphology.** Each rule is a continuous function of the place, not a preset, and is neutral at the reference habitat (the approved form). Seed fixes the individual: its arrangement and proportions. This is what the Architecture Lab implements now (`overhangRefined.ts`).
+
+| Habitat | What changes in the form | Why (biology) |
+|---|---|---|
+| Reference | the balanced baseline | |
+| Open ridge | a more compact, thicker and wider cantilever, a shorter reach, less swing, more and heavier piers, a lower and broader tower | wind loads a long bracket, so it is built short and reinforced (*real:* wind-hardened plants are shorter and thicker) |
+| Sheltered hollow | a taller tower, the cantilever carried higher, narrower masses | in shade, light is the scarce resource, so height wins (*real:* shade avoidance, etiolation); no wind limits it |
+| Damp shore | a broader footing, a second mass more often, a heavier cantilever, longer toes | water and dissolved minerals are plentiful, so more skeleton can be accumulated, but only where the mineral supply is high enough |
+| Crowded | lateral growth redirected (a stronger swing), a shorter reach, a tower that races for light, a lopsided form | competition for space and light (*real:* crowded plants lean and branch away from neighbours) |
+| Poor resources (anywhere) | every extension (height, reach, thickness) is smaller | mineral and nutrient limits |
+
+**Lifecycle.** One continuous life, in seven stages (the Lab's Lifecycle slider; maturity is the approved form):
+
+1. **Establishment:** a propagule lands on suitable ground (see below) and anchors; a small footing and a first low mass.
+2. **Juvenile:** early vertical growth; the tower rises toward the light.
+3. **Growing:** the tower rises, the cantilever extends, the supports develop under it as the load grows.
+4. **Maturity:** the full form: tower, cantilever, secondary masses and supports, and the shaded undercroft; the organism sheds propagules.
+5. **Senescence:** the living skin deteriorates, first where it is shaded or thin; the mineral skeleton is exposed.
+6. **Death:** the living tissue is gone; the skeleton weathers and begins to fail locally.
+7. **Remains:** mineral ruins: a broken cantilever, failed piers, the tops of the towers fallen, rubble on the ground, and a mineral apron around the footing.
+
+The structure persists after the living tissue: the skeleton is the part that is kept (as a coral reef's is), so a dead Overhang is still architecture, and the remains are the organism's lasting trace.
+
+**Propagule dispersal (fiction, planned).** A mature organism sheds propagules (small mineralised seed-like bodies carrying symbionts). Three carriers, in order of range: **wind**, from high shelves and tips, over short to middle distances and downwind; **water**, carried by runoff and rivers to shores and floodplains; and the **Veil Glider**, which catches propagules on its hooked wing-ray tips and carries them much farther than the organism can reach alone. A propagule establishes only where light, water and a mineral supply allow, and not under an established neighbour. *Not implemented:* the world already places a population from site suitability; propagule dispersal as a process is planned.
+
+**How living and dead Overhang organisms shape habitat, and eventually the landscape (planned).** Alive, an Overhang shades the ground beneath its cantilever and so makes the sheltered undercroft the island's habitat for shade-seeking life (the core tension above); its piers and toes slow runoff. Senescent and dead, its fallen tissue and weathering return minerals and nutrients to the ground, rubble makes new shelter and footing for other species, and the ruins leave a lasting mineral deposit that changes the soil and the ground's wetness (a mineral apron, a reef-like deposit). Over many generations, long-lived remains and the shore deposits of organisms by water could raise and shape ground. None of this changes terrain yet (see "implemented now").
+
+**Relationships with the four creature species** (from the Creature Lab; see the species notes there). These are the planned feedbacks; none is simulated yet.
+
+| Species | Relation to the Overhang |
+|---|---|
+| **Hollow Dweller** | lives in the undercrofts and hollows; its scraping and gnawing keeps cavities open and stops shaded old tissue closing them, so it enlarges and maintains the openings the organism leaves (the hook for "creature activity enlarges openings") |
+| **Veil Glider** | launches from high shelves; catches propagules on its ray tips and carries them farther (dispersal) |
+| **Strider** | forages at the shore; stirs silt and mineral toward the land, feeding the toes of organisms that stand at the water's edge (a mineral and nutrient supply for the damp-shore form) |
+| **Litter Crawler** | roots through litter under shelves and eats receded tissue and fallen matter, breaking it down into soil (returning nutrients and minerals from senescent and dead organisms) |
+
+**Implemented now vs planned**
+
+| | Implemented now | Planned |
+|---|---|---|
+| Form | the refined Overhang (Architecture Lab) is the world's Overhang (`?la=classic` shows the earlier form for comparison); its seed variation, habitat rules and terrain adaptation are the Lab's own functions, called with each organism's place | more distinct configurations as the real island fields feed them |
+| Habitat and terrain | each organism's light, moisture, minerals/nutrients, exposure, crowding, water and the ground's slope and rise at its site set its form (below) | wind and sun direction as inputs; seasonal change |
+| Lifecycle | seven stages derived from age and the ecological state (below); the Lab draws the same stages on a slider | resource-driven timing from the full simulation; the world clock's day and season |
+| Ground | irregular, terrain-following mineral deposits (a faint collar as the skeleton weathers, a thick patchy apron and fallen rubble in the remains), anchored footings, rubble lying on the ground | deposits that change the soil, wetness and vegetation habitat; persistent terrain deformation |
+| Dispersal, ecology | none | propagule dispersal by wind, water and Veil Glider; recruits germinating in the ground the dead leave open; remains feeding shelter, minerals and litter to others |
+| Creatures | none (the Creature Lab is separate); an interface (`lifeInfluence`) says what each organism gives | the four relations above |
+
+#### Ecological state and lifecycle in the world (livingLifecycle.ts)
+
+Each organism has a deterministic life from the population's yearly simulation (livingEcology.ts: its light, moisture, resources, the shade and root draw of its neighbours, and its vigor, each year). The model is lightweight and tunable (`ECOLOGY` in livingLifecycle.ts); it is not a metabolic simulation and it is independent of rendering (the page, the worker and the Lab all read it the same way).
+
+| Quantity | Meaning | Rule |
+|---|---|---|
+| Stress | how hard the place is, 0 to 1 | 0.30 × lack of light + 0.22 × lack of water + 0.22 × lack of minerals/nutrients (soil and resource) + 0.12 × exposure (open ridge) + 0.14 × crowding (neighbours' shade and root draw) |
+| Growth rate | how fast its age advances | the simulation's vigor: light × resource × moisture |
+| Health | its condition, 0 to 1 | follows 1.15 − 1.3 × stress, a quarter of the gap each year |
+| Reserve | remaining vitality | 1 until it has matured; then spent each year by (0.6 + 1.6 × stress + 0.8 × (1 − health)) / (75 years × its own constitution, ±12%). At 0 it dies |
+| Lifespan | birth to death | not set: a hard place spends the reserve faster (about 90 to 170 years on the default island) |
+
+Stages come from age, the reserve and the time since death, as one lifecycle coordinate L (the Lab's slider): 0 to 0.5 establishment, juvenile and growing (L is half its age; age 1 is the approved mature form); 0.5 to 0.58 maturity (the reserve above 55%); 0.58 to 0.74 senescence (as the reserve falls from 55% to 0); 0.74 to 0.88 death (the 12 years after the reserve is spent: the cantilever breaks back, the supports fail, the towers lose their tops); 0.88 to 1 remains (weathering over 120 years, then they stay). The reference organism (LA-01) reaches Maturity exactly in World Year 120. A young organism does not die before it matures (a simplification).
+
+At World Year 120 (Day 1) the default island (seed 909387746, 42 planned, 35 present) shows establishment 1, juvenile 7, growing 11, maturity 6, senescence 7, death 2, remains 1 (7 not yet established); other seeds checked (1, 42, 777, 2026) show most stages, with Establishment and Remains occasionally absent. The distribution is the outcome of when each organism took root and how hard its place is, not an assignment. Deaths by World Year 300: 39 of the 42.
+
+What the living and the dead give to others is `lifeInfluence` (shelter, minerals, litter), derived from the stage: the interface for the Creature and Vegetation systems, not yet used by them.
+
+**Assumptions to revisit.** The stress weights, the reserve rates and the 75-year constant are provisional first choices (not tuned against anything); with them the default island shows every stage at Year 120. Dead organisms do not yet stop shading or drawing on their neighbours' ground, and their death does not yet open ground for recruits. Remains reach their final form 120 years after death and then persist as they are (deeper weathering and burial are future).
+
 ### Realism and fiction
 
 The world is meant to be partly understandable and partly invented.
@@ -152,7 +243,7 @@ Whenever possible, a visual mark should correspond to actual procedural state ra
 | **Terrain and water** | A 4.1 km island: layered noise, drainage into lakes and rivers, a sky and a weather timeline that feed a simple hydrology. Observed in the app |
 | **World Time** | One clock with two modes: a Daily Cycle (sun, weather) and Evolution (World Year 0–300, with playback speeds). World Year 120 is the default observation start and the reference organism's calibration, not a special event |
 | **Navigation** | Overview, Approach and Explore (first person, pointer lock), with an inspection card for a selected organism |
-| **Living Architecture** | Under exploration: several growth representations compared against one brief; a population of organisms with their own ages, ground-driven forms and kin links. Not finalized: [experiments](../analysis/living-architecture-experiments.md) |
+| **Living Architecture** | Under exploration: several growth representations compared against one brief; a population of organisms with their own ages, ground-driven forms and kin links. Not finalized: [experiments](../analysis/living-architecture-experiments.md). The Overhang's biology, habitat rules, ecological state and seven-stage lifecycle, now in the world (refined Overhang; `?la=classic` for the earlier form): [The Overhang as an organism](#the-overhang-as-an-organism-biology) |
 | **Vegetation and habitat** | Rules exist in 0.1 and 0.2; not yet rebuilt for 0.3 |
 | **Creatures** | Concept and morphology studies only ([Visual Direction](shadow-ecology-visual-direction.md#creature-explorations), Week 07); no 0.3 implementation |
 

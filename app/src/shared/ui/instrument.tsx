@@ -201,13 +201,24 @@ export function InstrumentPanel({
   label,
   utilities,
   children,
+  collapsed: collapsedProp,
+  onCollapsedChange,
 }: {
   label: string
   /** Panel-level tools under the title, outside the scrolling sections. */
   utilities?: ReactNode
   children: ReactNode
+  /** Optional: the page controls whether the panel is collapsed (otherwise the panel keeps its own state). */
+  collapsed?: boolean
+  onCollapsedChange?: (collapsed: boolean) => void
 }) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [own, setOwn] = useState(false)
+  const collapsed = collapsedProp ?? own
+  const setCollapsed = (update: (current: boolean) => boolean) => {
+    const next = update(collapsed)
+    if (collapsedProp === undefined) setOwn(next)
+    onCollapsedChange?.(next)
+  }
 
   return (
     <aside

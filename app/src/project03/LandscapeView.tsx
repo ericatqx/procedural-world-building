@@ -1,6 +1,7 @@
+import { FormationLayer } from './formationLayer.tsx'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import { Color, DoubleSide, Fog, Group, Mesh, MeshStandardMaterial, PerspectiveCamera, Vector3 } from 'three'
 import {
   EYE_HEIGHT,
@@ -17,18 +18,30 @@ import {
   islandRadius,
   landscapeHeight,
   lodForDistance,
+  overviewFraming,
   overviewPose,
   type DetailLevel,
 } from './terrain.ts'
-import { buildChunkGeometry, buildIslandShell, type ChunkNeighbors } from './terrainMesh.ts'
+import { loading, viewProjector } from './loading.ts'
+import { buildChunkGeometry, buildIslandShell, drawnLods, refreshDrawnLift, type ChunkNeighbors } from './terrainMesh.ts'
 import { smoothstep } from '../project02/core.ts'
 import { environment, fogScale, wetness } from './environment.ts'
 import { LivingArchitecture, type ArchitectureVariant } from './LivingArchitecture.tsx'
+import { Vegetation } from './Vegetation.tsx'
+import { WorldPlants } from './WorldPlants.tsx'
+import { Creatures } from './Creatures.tsx'
+import { creatureCam, creatureFocus } from './creatureCam.ts'
+import { applyVegGround } from './vegGround.ts'
+import { applyStyleFinish, specialiseStyle, styleScalars, syncStyleSwitches } from './visualStyle.ts'
 import { focusPoint, takeLookRequest } from './livingSelection.ts'
 import { PlacementCursor, type Placement } from './PlacementCursor.tsx'
 import { applyMist } from './mist.ts'
-import { Rain, Sky, WindTracers } from './Sky.tsx'
+import { Rain, Sky, SunDisc, SunOrrery, WindTracers } from './Sky.tsx'
+
+/** Whether the sun's disc is drawn (Explore's sky disc, the Black Stage's paper disc). Off since Round 08G. */
+const SHOW_SUN = false
 import { WaterLayer } from './WaterLayer.tsx'
+import { FlowParticles } from './FlowParticles.tsx'
 import { WADE_DEPTH, type WaterSystem } from './water.ts'
 import type { World } from './world.ts'
 
@@ -45,6 +58,10 @@ export type Navigation = {
   teleport: { x: number; z: number; yaw?: number; glide?: boolean } | null
   /** A camera pose for the orbiting views (the Waterfall Locator), applied on the next such frame, then cleared. */
   view: { position: [number, number, number]; target: [number, number, number] } | null
+  /** The walker's actual speed in metres per second this frame (0 when still or blocked; 0 outside Explore), for the HUD. */
+  speed: number
+  /** A place for Approach to look at (picked on the terrain or the map): the camera glides to its Approach view, then this is cleared. */
+  approach: { x: number; z: number; dist?: number; yaw?: number; aim?: number; glide?: number; arc?: boolean; elev?: number } | null
   /** Standing water the walker keeps out of, or null when water is hidden. */
   water: WaterSystem | null
 }
@@ -58,6 +75,8 @@ export type TerrainReadout = {
 
 type Orbit = {
   enabled: boolean
+  /** The element the controls listen on (Round 08A: a lost release is ended there). */
+  domElement?: HTMLElement | null
   target: Vector3
   minDistance: number
   maxDistance: number
@@ -71,7 +90,7 @@ type Orbit = {
 /** One zoom range for every orbiting view: from close to its target to well beyond the island. */
 const ORBIT_DISTANCE = { min: 1, max: 32000 }
 /** Closest the orbiting camera may come to the ground beneath it, in meters. */
-const GROUND_CLEARANCE = 4
+const GROUND_CLEARANCE = 1.5
 /** The orbiting views may not tilt below this polar angle (about 79° from straight up), except while handing over from Explore. */
 const MAX_POLAR = 1.38
 /** The hand-over from Explore: the orbit turns about where the view ray meets the ground, no nearer than the first and no farther than the second (meters). */
@@ -174,9 +193,11 @@ export function TerrainField({
   })
   const lods = useRef(new Int8Array(COUNT).fill(-1))
   const meshLods = useRef(new Int8Array(COUNT).fill(-1))
+  drawnLods.lods = meshLods.current
   const seen = useRef({ e: new Int8Array(COUNT), w: new Int8Array(COUNT), n: new Int8Array(COUNT), s: new Int8Array(COUNT) })
   const meshes = useRef<(Mesh | null)[]>(new Array(COUNT).fill(null))
   const ready = useRef(false)
+  const liftDirty = useRef(true)
 
   useLayoutEffect(() => {
     const root = group.current
@@ -196,6 +217,8 @@ export function TerrainField({
     }
     ready.current = true
     readout.pending = 0
+    refreshDrawnLift()
+    liftDirty.current = false
     return () => {
       for (const mesh of meshes.current) {
         mesh?.geometry.dispose()
@@ -212,7 +235,8 @@ export function TerrainField({
   useFrame(() => {
     if (!ready.current) return
     assignLods(lods.current, camera.position, place.current, detail.current)
-    const limit = rush.current ? 12 : 5
+    // Under a loading cover nothing is seen yet, so the first fill takes bigger steps (loading.ts); the chunks and their order are the same.
+    const limit = loading.covered ? 45 : rush.current ? 12 : 5
     const started = performance.now()
     const queue = staleQueue(camera.position)
     let rebuilt = 0
@@ -236,6 +260,11 @@ export function TerrainField({
     }
     readout.triangles = triangles
     readout.pending = pending
+    // The rivers' lift follows the levels the chunks are drawn at (terrainMesh.ts › drawnLift): rewritten only when chunks were rebuilt.
+    if (liftDirty.current) {
+      liftDirty.current = false
+      refreshDrawnLift()
+    }
     readout.camera = camera.position.y
     readout.ground = landscapeHeight(camera.position.x, camera.position.z)
     if (pending === 0) rush.current = false
@@ -306,6 +335,7 @@ export function TerrainField({
     }
     if (existing) existing.geometry = geometry
     meshLods.current[id] = lod
+    liftDirty.current = true
     seen.current.e[id] = neighbors.e
     seen.current.w[id] = neighbors.w
     seen.current.n[id] = neighbors.n
@@ -334,7 +364,10 @@ function useMemoMaterial() {
            diffuseColor.rgb *= 1.0 - 0.34 * wetNow;`,
         )
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n           roughnessFactor = mix(roughnessFactor, 0.5, wetNow * 0.7);')
+      applyVegGround(shader)
+      applyStyleFinish(shader, 'terrain')
     }
+    specialiseStyle(next)
     material.current = next
   }
   useEffect(() => () => material.current?.dispose(), [])
@@ -350,7 +383,7 @@ const FOG: Record<ViewMode, { near: number; far: number }> = {
 function Atmosphere({ mode }: { mode: ViewMode }) {
   const scene = useThree((state) => state.scene)
   useLayoutEffect(() => {
-    scene.background = new Color('#050608')
+    scene.background = new Color('#000000')
     const fog = FOG[mode]
     scene.fog = new Fog('#050608', fog.near, fog.far)
     return () => {
@@ -361,7 +394,7 @@ function Atmosphere({ mode }: { mode: ViewMode }) {
   return null
 }
 
-type Focus = { x: number; z: number; yaw: number; pitch: number }
+type Focus = { x: number; z: number; yaw: number; pitch: number; dist?: number; aim?: number; glide?: number; arc?: boolean; elev?: number }
 
 const HOME = exploreLook(0, 0)
 
@@ -374,6 +407,37 @@ function ease(t: number) {
 }
 
 const rayAt = new Vector3()
+
+/**
+ * The lowest the orbiting camera may be at (x, z): the highest ground under it or within CLEARANCE_SIDE of it, plus `clearance`; null
+ * off the field. One rule for the frame's clearance and for the zoom, so the zoom stops where the camera would be lifted.
+ */
+/**
+ * A composed LOW view (the /preview site's Formation: plants seen as a person would see them, not from above): the camera on a straight line at
+ * `elev` radians above the target, raised only as far as the ground under the camera and along the line of sight asks (approachPose keeps at least
+ * 25 degrees and 36 m of clearance over the midpoint, which up close looked straight down).
+ */
+function lowPose(x: number, z: number, yaw: number, dist: number, aim: number, elev: number): { position: [number, number, number]; target: [number, number, number] } {
+  const ty = landscapeHeight(x, z) + aim
+  const cx = x + Math.sin(yaw) * dist
+  const cz = z + Math.cos(yaw) * dist
+  let cy = Math.max(ty + dist * Math.tan(elev), landscapeHeight(cx, cz) + 3)
+  for (let f = 0.15; f < 0.95; f += 0.1) {
+    const g = landscapeHeight(cx + (x - cx) * f, cz + (z - cz) * f) + 2
+    const line = cy + (ty - cy) * f
+    if (g > line) cy += (g - line) / (1 - f)
+  }
+  return { position: [cx, cy, cz], target: [x, ty, z] }
+}
+
+function clearanceFloor(x: number, z: number, clearance: number, ring = true): number | null {
+  if (Math.abs(x) >= HALF || Math.abs(z) >= HALF) return null
+  let ground = landscapeHeight(x, z)
+  if (ring) {
+    for (let k = 0; k < 8; k += 1) ground = Math.max(ground, landscapeHeight(x + Math.cos(k * 0.7854) * CLEARANCE_SIDE, z + Math.sin(k * 0.7854) * CLEARANCE_SIDE))
+  }
+  return ground + clearance
+}
 
 /** How far along a ray (from `from`, unit `dir`) the ground first meets it, or null: the terrain's height field, inside the island. */
 function groundAlong(from: Vector3, dir: Vector3, maxDistance: number): number | null {
@@ -422,7 +486,12 @@ export function LandscapeRig({
   const controls = useThree((state) => state.controls) as unknown as Orbit | null
   const modeRef = useRef(mode)
   modeRef.current = mode
+  /** The mode before the latest change, and whether the glide under way began in Walk (its haze, near plane and clearance then ease out of Walk's). */
+  const previousMode = useRef(mode)
+  const fromWalk = useRef(false)
   const glide = useRef(1)
+  /** A composed move's arc height over the terrain (worked out once, at its first frame). */
+  const arcLift = useRef<number | null>(null)
   const fromPos = useRef(new Vector3())
   const fromAim = useRef(new Vector3())
   const fromYaw = useRef(0)
@@ -457,7 +526,9 @@ export function LandscapeRig({
     if (mode === 'approach') approachFocus.current = takeLookRequest() ? focusPoint(camera.position) : null
     if (mode === 'explore') handoff.current = false
     const cam = camera as PerspectiveCamera
-    if (cam.view?.enabled) cam.clearViewOffset()
+    const leftWalk = previousMode.current === 'explore' && mode !== 'explore'
+    previousMode.current = mode
+    fromWalk.current = leftWalk
     if (!ready.current) {
       ready.current = true
       glide.current = 1
@@ -468,6 +539,13 @@ export function LandscapeRig({
     camera.getWorldDirection(lookScratch)
     fromYaw.current = Math.atan2(-lookScratch.x, -lookScratch.z)
     fromPitch.current = Math.asin(Math.max(-1, Math.min(1, lookScratch.y)))
+    // Round 09: from Walk straight to the overview, the glide's aim starts on the walker's own line of sight (at the overview's own aim distance),
+    // not at the orbit's old target from before the walk: the view then turns, rises and pulls back as one move, with no swing at the start.
+    if (leftWalk) {
+      const target = mode === 'overview' ? overviewPose(0, 0, undefined, fromYaw.current).target : approachPose(focus.current.x, focus.current.z, focus.current.yaw, undefined, focus.current.dist, focus.current.aim).target
+      const reach = Math.max(30, camera.position.distanceTo(new Vector3(...target)))
+      fromAim.current.copy(camera.position).addScaledVector(lookScratch, reach)
+    }
     glide.current = 0
     orbiting.current = false
     if (mode === 'explore') {
@@ -477,10 +555,11 @@ export function LandscapeRig({
       explore.current.pitch = focus.current.pitch
     }
     if (mode === 'overview') {
-      cam.near = 40
+      // (Leaving Walk the camera starts at eye height: the walker's near plane is kept, and the frame loop eases it out with the glide.)
+      cam.near = leftWalk ? 0.25 : 40
       cam.far = 80000
     } else if (mode === 'approach') {
-      cam.near = 1
+      cam.near = leftWalk ? 0.25 : 1
       cam.far = 30000
     } else {
       cam.near = 0.25
@@ -619,6 +698,7 @@ export function LandscapeRig({
   useEffect(() => {
     const element = gl.domElement
     const ahead = new Vector3()
+    const probe = new Vector3()
     const locked = () => document.pointerLockElement === element
     // Cursor free in Explore, zooming:: the same camera continues in the orbit controls. It stays where it is, and they
     // take a point a few meters ahead, at the walker's feet, as the thing it turns about.
@@ -673,13 +753,39 @@ export function LandscapeRig({
           dist = to
         }
       }
-      const next = Math.max(ORBIT_DISTANCE.min, Math.min(ORBIT_DISTANCE.max, dist * scale))
+      let next = Math.max(ORBIT_DISTANCE.min, Math.min(ORBIT_DISTANCE.max, dist * scale))
+      // Zooming in stops where the camera would be lifted off the ground, not past it. (Past it, the orbit's own position went
+      // on under the ground while the drawn camera stayed lifted, so the next zoom out had to climb back out before anything moved.)
+      if (scale < 1 && !handoff.current) {
+        probe.subVectors(camera.position, orbit.target).divideScalar(dist)
+        const below = (d: number) => {
+          const floor = clearanceFloor(orbit.target.x + probe.x * d, orbit.target.z + probe.z * d, GROUND_CLEARANCE)
+          return floor !== null && orbit.target.y + probe.y * d < floor
+        }
+        if (below(next)) {
+          if (below(dist)) next = dist
+          else {
+            let lo = next
+            let hi = dist
+            for (let n = 0; n < 8; n += 1) {
+              const mid = (lo + hi) / 2
+              if (below(mid)) lo = mid
+              else hi = mid
+            }
+            next = hi
+          }
+        }
+      }
       camera.position.sub(orbit.target).multiplyScalar(next / dist).add(orbit.target)
       orbit.update()
     }
+    // A creature camera owns the camera and its own zoom (Creatures.tsx). This handler must stand aside then: it moved the shared camera toward the
+    // orbit's stale target (often hundreds of metres away), and the terrain, the plants and the streaming read that pose in the next frame before the
+    // creature camera put it back, so the plants near the creature were culled or dropped to a distant level for a moment on every wheel step.
+    const creatureOwned = () => creatureCam.get().mode !== 'off'
     const wheel = (event: WheelEvent) => {
       event.preventDefault()
-      if (locked() || glide.current < 1) return
+      if (creatureOwned() || locked() || glide.current < 1) return
       const unit = event.deltaMode === 1 ? 33 : event.deltaMode === 2 ? 400 : 1
       // A pinch arrives as a wheel with Ctrl held and much smaller steps, so it gets a stronger factor.
       const gain = event.ctrlKey ? 0.012 : 0.0025
@@ -695,7 +801,7 @@ export function LandscapeRig({
     const gestureChange = (event: Event) => {
       event.preventDefault()
       const scale = (event as Event & { scale: number }).scale
-      if (locked() || glide.current < 1 || !(scale > 0)) return
+      if (creatureOwned() || locked() || glide.current < 1 || !(scale > 0)) return
       zoom(lastScale / scale)
       lastScale = scale
     }
@@ -733,7 +839,34 @@ export function LandscapeRig({
     }
     controls.addEventListener('start', begin)
     controls.addEventListener('end', finish)
+    // Round 08A — A LOST RELEASE. The orbit controls start a gesture on pointer-down and end it only on pointer-up or pointer-cancel; meanwhile
+    // they listen to every pointer move on the page. If the release never reaches them (the window loses focus mid-drag, a context menu or
+    // another app takes the button-up, pointer capture is dropped), the gesture stays open and plain pointer movement, with no button held,
+    // keeps orbiting the island until the next click. Reproduced with synthetic events: ten button-less moves after a lost release turned the
+    // camera through about 3 km. So a gesture is ended as soon as the mouse reports no button held, the window loses focus, or capture is lost.
+    const element = controls.domElement ?? null
+    let lastPointer = 1
+    const noteDown = (event: PointerEvent) => {
+      lastPointer = event.pointerId
+    }
+    const endGesture = (pointerId: number) => {
+      if (!orbiting.current || !element) return
+      element.dispatchEvent(new PointerEvent('pointercancel', { pointerId, pointerType: 'mouse', bubbles: true }))
+    }
+    const strayMove = (event: PointerEvent) => {
+      if (orbiting.current && event.pointerType === 'mouse' && event.buttons === 0) endGesture(event.pointerId)
+    }
+    const lost = () => endGesture(lastPointer)
+    element?.addEventListener('pointerdown', noteDown, true)
+    element?.addEventListener('lostpointercapture', lost)
+    // Capture phase on the document, so it runs before the controls' own move handler and the stray move does not orbit.
+    document.addEventListener('pointermove', strayMove, true)
+    window.addEventListener('blur', lost)
     return () => {
+      element?.removeEventListener('pointerdown', noteDown, true)
+      element?.removeEventListener('lostpointercapture', lost)
+      document.removeEventListener('pointermove', strayMove, true)
+      window.removeEventListener('blur', lost)
       controls.removeEventListener('start', begin)
       controls.removeEventListener('end', finish)
     }
@@ -746,7 +879,51 @@ export function LandscapeRig({
     if (modeRef.current !== 'explore' && kept.valid && camera.position.equals(kept.out)) camera.position.copy(kept.want)
   }, -2)
 
+  // The page may draw annotations over the world (loading.ts › viewProjector): where a world point falls on it, as this camera sees it.
+  useEffect(() => {
+    const v = new Vector3()
+    viewProjector.project = (x, y, z) => {
+      v.set(x, y, z).project(camera)
+      const r = gl.domElement.getBoundingClientRect()
+      return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height, front: v.z < 1 }
+    }
+    return () => {
+      viewProjector.project = null
+    }
+  }, [camera, gl])
+
+  // The lens shift (terrain.ts › overviewFraming.shiftX/Y): eased toward the framing's, and to none while walking or under a creature camera.
+  const lensShift = useRef({ x: 0, y: 0 })
+  useFrame((state, delta) => {
+    const want = modeRef.current === 'explore' || creatureCam.get().mode !== 'off' ? { x: 0, y: 0 } : { x: overviewFraming.shiftX, y: overviewFraming.shiftY }
+    const s = lensShift.current
+    // (As slow as the overview's glide, when the page sets one, so the shift and the camera arrive together.)
+    const k = 1 - Math.exp(-delta / (overviewFraming.glide ? overviewFraming.glide * 0.35 : 0.35))
+    s.x += (want.x - s.x) * k
+    s.y += (want.y - s.y) * k
+    if (Math.abs(s.x - want.x) < 1e-4) s.x = want.x
+    if (Math.abs(s.y - want.y) < 1e-4) s.y = want.y
+    const cam = camera as PerspectiveCamera
+    const { width, height } = state.size
+    if (s.x === 0 && s.y === 0) {
+      if (cam.view?.enabled) {
+        cam.clearViewOffset()
+      }
+    } else if (!cam.view?.enabled || cam.view.offsetX !== -s.x * width || cam.view.offsetY !== -s.y * height || cam.view.fullWidth !== width) {
+      cam.setViewOffset(width, height, -s.x * width, -s.y * height, width, height)
+    }
+  })
+
   useFrame((_, delta) => {
+    // A creature camera (Follow, POV, or the glide of Locate) owns the camera: the rig stands aside, and the orbit controls rest.
+    if (creatureCam.get().mode !== 'off') {
+      if (controls) controls.enabled = false
+      // The ground it looks at is what the terrain, the plants and the shadows stream for.
+      focus.current.x = creatureFocus.x
+      focus.current.z = creatureFocus.z
+      place.current.set(creatureFocus.x, 0, creatureFocus.z)
+      return
+    }
     const orbit = controls
     const current = modeRef.current
     const cam = camera as PerspectiveCamera
@@ -764,6 +941,25 @@ export function LandscapeRig({
         orbit.update()
         glide.current = 1
       }
+      const aim = nav.current.approach
+      if (aim) {
+        // A place chosen for Approach: the camera glides from where it is to that place's Approach view.
+        nav.current.approach = null
+        focus.current.x = aim.x
+        focus.current.z = aim.z
+        focus.current.dist = aim.dist
+        // (Optional, for a composed shot (the /preview site's Formation): the side to look from, the height to aim at, and a slower glide.)
+        if (aim.yaw !== undefined) focus.current.yaw = aim.yaw
+        focus.current.aim = aim.aim
+        focus.current.glide = aim.glide
+        focus.current.arc = aim.arc
+        focus.current.elev = aim.elev
+        arcLift.current = null
+        approachFocus.current = null
+        fromPos.current.copy(camera.position)
+        fromAim.current.copy(orbit.target)
+        glide.current = 0
+      }
       if (glide.current < 1 && !orbiting.current) {
         handoff.current = false
         // Overview always turns about the island's center, from the side the camera is already looking from. Approach is a
@@ -775,13 +971,36 @@ export function LandscapeRig({
             ? overviewPose(0, 0, undefined, fromYaw.current)
             : local
               ? approachPose(local.x, local.z, local.yaw ?? focus.current.yaw, undefined, Math.max(110, Math.min(420, local.radius * 2.6 + local.height * 1.8 + 40)), local.height * 0.35)
-              : approachPose(focus.current.x, focus.current.z, focus.current.yaw)
-        glide.current = Math.min(1, glide.current + Math.min(delta, 0.05) / GLIDE_SECONDS)
+              : focus.current.elev !== undefined
+                ? lowPose(focus.current.x, focus.current.z, focus.current.yaw, focus.current.dist ?? 60, focus.current.aim ?? 2, focus.current.elev)
+                : approachPose(focus.current.x, focus.current.z, focus.current.yaw, undefined, focus.current.dist, focus.current.aim)
+        const glideSeconds = current === 'approach' && !local && focus.current.glide ? focus.current.glide : (current === 'overview' || fromWalk.current) && overviewFraming.glide ? overviewFraming.glide : GLIDE_SECONDS
+        glide.current = Math.min(1, glide.current + Math.min(delta, 0.05) / glideSeconds)
         const t = ease(glide.current)
+        // A composed move (the /preview site's Formation) may ask for an ARC: the camera rises on one smooth curve high enough to clear the terrain under
+        // its whole path, instead of being pushed up and down by the ground clearance wherever the straight line would cut a hill (a bumpy ride).
+        if (current === 'approach' && !local && focus.current.arc && arcLift.current === null) {
+          // (Round 17: the clearance margin tapers to nothing at both ends, only the path's middle is tested, and the lift is held in proportion to
+          // the move. A fixed 25 m margin against a destination a few metres over the ground, divided by the arc's small height there, asked for the
+          // 600 m cap: between Living Architecture and Vegetation the camera shot up and showed the whole island for a moment.)
+          let need = 0
+          const span = Math.hypot(pose.position[0] - fromPos.current.x, pose.position[2] - fromPos.current.z)
+          for (let k = 2; k < 19; k += 1) {
+            const u = k / 20
+            const arc = Math.sin(Math.PI * u)
+            const x = fromPos.current.x + (pose.position[0] - fromPos.current.x) * u
+            const z = fromPos.current.z + (pose.position[2] - fromPos.current.z) * u
+            const y = fromPos.current.y + (pose.position[1] - fromPos.current.y) * u
+            const short = landscapeHeight(x, z) + GROUND_CLEARANCE + 12 * arc - y
+            if (short > 0) need = Math.max(need, short / arc)
+          }
+          arcLift.current = Math.min(Math.max(20, span * 0.35), need)
+        }
+        const lift = current === 'approach' && !local && focus.current.arc ? (arcLift.current ?? 0) * Math.sin(Math.PI * t) : 0
         camera.up.set(0, 1, 0)
         camera.position.set(
           fromPos.current.x + (pose.position[0] - fromPos.current.x) * t,
-          fromPos.current.y + (pose.position[1] - fromPos.current.y) * t,
+          fromPos.current.y + (pose.position[1] - fromPos.current.y) * t + lift,
           fromPos.current.z + (pose.position[2] - fromPos.current.z) * t,
         )
         orbit.target.set(
@@ -806,18 +1025,15 @@ export function LandscapeRig({
       const cx = camera.position.x
       const cz = camera.position.z
       held.current.want.copy(camera.position)
-      if (Math.abs(cx) < HALF && Math.abs(cz) < HALF) {
-        // The highest ground under the camera or around it, so a rising slope beside it is not cut through. The ground the
-        // terrain meshes draw can be coarser than this height field while they catch up with a moving camera, so the ring
-        // is wide (CLEARANCE_SIDE) and the clearance holds on the whole field, not just inside the island's outline.
-        // Handing over from Explore only the ground underfoot counts, so the camera is not lifted the moment the cursor is released.
-        let ground = landscapeHeight(cx, cz)
-        if (!handoff.current) {
-          for (let k = 0; k < 8; k += 1) ground = Math.max(ground, landscapeHeight(cx + Math.cos(k * 0.7854) * CLEARANCE_SIDE, cz + Math.sin(k * 0.7854) * CLEARANCE_SIDE))
-        }
-        const floor = ground + clearance
-        if (camera.position.y < floor) camera.position.y = floor
-      }
+      // The highest ground under the camera or around it, so a rising slope beside it is not cut through. The ground the
+      // terrain meshes draw can be coarser than this height field while they catch up with a moving camera, so the ring
+      // is wide (CLEARANCE_SIDE) and the clearance holds on the whole field, not just inside the island's outline.
+      // Handing over from Explore only the ground underfoot counts, so the camera is not lifted the moment the cursor is released.
+      // Gliding out of Walk: how far the glide has come (eased), so its haze, near plane and clearance leave Walk's as the camera does.
+      if (fromWalk.current && glide.current >= 1) fromWalk.current = false
+      const walkBlend = fromWalk.current ? ease(glide.current) : null
+      const floor = clearanceFloor(cx, cz, clearance, !handoff.current && walkBlend === null)
+      if (floor !== null && camera.position.y < floor) camera.position.y = floor
       held.current.out.copy(camera.position)
       held.current.valid = true
       // The far plane never closes in with the target's distance: a camera close to its target can still be looking out over
@@ -829,6 +1045,7 @@ export function LandscapeRig({
         near = Math.max(0.25, dist * 0.004)
         if (dist * 14 >= EXPLORE_FAR) handoff.current = false
       }
+      if (walkBlend !== null) near = 0.25 + (near - 0.25) * walkBlend
       if (Math.abs(cam.near - near) > near * 0.08 || Math.abs(cam.far - far) > far * 0.02) {
         cam.near = near
         cam.far = far
@@ -845,8 +1062,13 @@ export function LandscapeRig({
           fogNear = FOG.explore.near * fogScale.near + (fogNear - FOG.explore.near * fogScale.near) * k
           fogFar = FOG.explore.far * fogScale.far + (fogFar - FOG.explore.far * fogScale.far) * k
         }
-        scene.fog.near = fogNear
-        scene.fog.far = fogFar
+        if (walkBlend !== null) {
+          fogNear = FOG.explore.near * fogScale.near + (fogNear - FOG.explore.near * fogScale.near) * walkBlend
+          fogFar = FOG.explore.far * fogScale.far + (fogFar - FOG.explore.far * fogScale.far) * walkBlend
+        }
+        // The illustrative styles may thicken the air (visualStyle.ts; 1 leaves it as it was).
+        scene.fog.near = fogNear * styleScalars.fog
+        scene.fog.far = fogFar * styleScalars.fog
         fogFrom.current = { near: fogNear, far: fogFar }
       }
       return
@@ -905,7 +1127,8 @@ export function LandscapeRig({
     const rx = Math.cos(pose.yaw)
     const rz = -Math.sin(pose.yaw)
     // Walking pace, faster while Shift is held.
-    const stride = (keys.current.sprint ? SPRINT_SPEED : WALK_SPEED) * Math.min(delta, 0.05)
+    // Walking is a moderate 1.7 times the old pace (Shift is still the fast travel): close work stays precise, crossing open ground is less of a chore.
+    const stride = (keys.current.sprint ? SPRINT_SPEED : WALK_SPEED * 1.7) * Math.min(delta, 0.05)
     const limit = HALF - 8
     let nx = Math.max(-limit, Math.min(limit, pose.x + (fx * keys.current.forward + rx * keys.current.strafe) * stride))
     let nz = Math.max(-limit, Math.min(limit, pose.z + (fz * keys.current.forward + rz * keys.current.strafe) * stride))
@@ -927,6 +1150,8 @@ export function LandscapeRig({
         nz = pose.z
       }
     }
+    // The speed actually made good this frame (collisions and the shore included), read by the HUD at once when Shift goes down or up.
+    nav.current.speed = Math.hypot(nx - pose.x, nz - pose.z) / Math.max(1e-3, Math.min(delta, 0.05))
     pose.x = nx
     pose.z = nz
     const eye = landscapeHeight(pose.x, pose.z) + EYE_HEIGHT
@@ -975,7 +1200,9 @@ function IslandShell() {
          outgoingLight += diffuseColor.rgb * (0.2 + warm * 0.5 + cool * 0.22) * uLit;
          #include <opaque_fragment>`,
         )
+      applyStyleFinish(shader, 'shell')
     }
+    specialiseStyle(next)
     return next
   }, [])
   useFrame(() => {
@@ -993,7 +1220,14 @@ function IslandShell() {
   return <mesh geometry={geometry} material={material} castShadow receiveShadow />
 }
 
-export function LandscapeScene({
+/**
+ * The scene, memoised: the page around it re-renders for its panel (several times a second while the camera or the clock moves), and every one of those
+ * re-rendered all of the scene's components with it. Its props are values and refs, and the page keeps its callbacks stable (ShadowEcology03.tsx).
+ */
+export const LandscapeScene = memo(LandscapeSceneView)
+
+
+function LandscapeSceneView({
   mode,
   readout,
   rush,
@@ -1005,6 +1239,8 @@ export function LandscapeScene({
   architecture,
   placing,
   onPlace,
+  picking,
+  onPick,
   onOrbit,
   presetKey,
 }: {
@@ -1013,6 +1249,9 @@ export function LandscapeScene({
   architecture: ArchitectureVariant
   placing: boolean
   onPlace: (placement: Placement) => void
+  /** Approach is asking where to look: the terrain follows the pointer with a target area, and a click picks it. */
+  picking: boolean
+  onPick: (x: number, z: number) => void
   onOrbit: () => void
   presetKey: number
   mode: ViewMode
@@ -1026,18 +1265,45 @@ export function LandscapeScene({
   const place = useRef(new Vector3(0, 0, 0))
   const opening = useRef(overviewPose(0, 0))
   const target = useRef(new Vector3(...opening.current.target))
+  // Whatever architecture is drawn lives under this group; vegetation reads its footprint, shade and shelter from it (vegHabitat.ts).
+  const architectureRoot = useRef<Group | null>(null)
+  const groundRoot = useRef<Group | null>(null)
+  const lifeRoot = useRef<Group | null>(null)
+  const waterRoot = useRef<Group | null>(null)
+  // The visual filter's and data view's switches, folded into the shaders (visualStyle.ts): rebuilt when one changes.
+  useFrame(syncStyleSwitches)
   return (
     <>
       <Atmosphere mode={mode} />
       <Sky place={place} readout={readout} />
+      {/* Round 08G: the sun is not drawn for now (its direction and light are unchanged); set SHOW_SUN to bring the discs back. */}
+      {SHOW_SUN ? (mode === 'explore' ? <SunDisc /> : <SunOrrery />) : null}
       <Rain key={`rain-${seed}`} place={place} water={world.water} />
       <WindTracers />
       <LandscapeRig mode={mode} focus={focus} place={place} nav={nav} onOrbit={onOrbit} presetKey={presetKey} />
-      <TerrainField key={`terrain-${seed}`} readout={readout} rush={rush} place={place} detail={detail} />
-      <IslandShell key={`shell-${seed}`} />
-      <LivingArchitecture key={`architecture-${seed}`} world={world} variant={architecture} />
+      {/* (Grouped so the /preview site's World Formation can stand its construction in for them: formationLayer.tsx.) */}
+      <group ref={groundRoot}>
+        <TerrainField key={`terrain-${seed}`} readout={readout} rush={rush} place={place} detail={detail} />
+        <IslandShell key={`shell-${seed}`} />
+      </group>
+      <FormationLayer key={`formation-${seed}`} world={world} ground={groundRoot} architecture={architectureRoot} life={lifeRoot} water={waterRoot} />
+      <group ref={architectureRoot}>
+        <LivingArchitecture key={`architecture-${seed}`} world={world} variant={architecture} />
+      </group>
+      {/* (Grouped so World Formation can keep the island's life out of sight until its stage: formationLayer.tsx.) */}
+      <group ref={lifeRoot}>
+        <Vegetation key={`vegetation-${seed}`} world={world} root={architectureRoot} />
+        <WorldPlants key={`plants-${seed}`} world={world} root={architectureRoot} />
+        <Creatures key={`creatures-${seed}`} world={world} nav={nav} root={architectureRoot} />
+      </group>
       <PlacementCursor active={placing} water={world.water} onPlace={onPlace} />
-      <WaterLayer key={`water-${seed}`} water={world.water} rivers={world.rivers} visible={showWater} />
+      <PlacementCursor kind="look" active={picking} water={world.water} onPlace={(p) => onPick(p.x, p.z)} />
+      {/* (Grouped so World Formation can hold the water back until its stage without touching Explore's own Water switch: formationLayer.tsx.) */}
+      <group ref={waterRoot}>
+        <WaterLayer key={`water-${seed}`} water={world.water} rivers={world.rivers} visible={showWater} />
+        {/* Explore's Water flow: particles down the rivers (drawn only while that lens is on). */}
+        <FlowParticles key={`flow-${seed}`} world={world} />
+      </group>
       <OrbitControls
         makeDefault
         enableDamping

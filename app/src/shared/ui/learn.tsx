@@ -1,3 +1,4 @@
+import { Chevron } from './instrument.tsx'
 import { useEffect, useId, useLayoutEffect, useState, type ReactNode } from 'react'
 import './learn.css'
 
@@ -43,6 +44,12 @@ export type LearnStep = {
 }
 
 const FOCUS_PADDING = 6
+
+/** A point's text, with any `==phrase==` drawn as a quiet marker highlight (learn.css › mark). */
+function marked(text: string): ReactNode {
+  if (!text.includes('==')) return text
+  return text.split('==').map((part, i) => (i % 2 === 1 ? <mark key={i}>{part}</mark> : part))
+}
 
 type Rect = { top: number; left: number; width: number; height: number; outline: boolean }
 
@@ -285,15 +292,34 @@ export function LearnTour({
   label = 'Learn',
   cues = {},
   onExit,
+  start = 0,
+  onStep,
+  extra,
+  buttons = {},
+  className,
+  collapsible = false,
 }: {
   steps: readonly LearnStep[]
   label?: string
   /** Labels for the `try` and `notice` cues. */
   cues?: { try?: string; notice?: string }
   onExit: () => void
+  /** The step it opens on (e.g. returning to a guide part way through). */
+  start?: number
+  /** Called with the step's index whenever it changes. */
+  onStep?: (index: number) => void
+  /** Anything a step adds below its text (e.g. links out of the guide), by step index. */
+  extra?: (index: number) => ReactNode
+  /** Labels for the Back, Next and Done buttons. */
+  buttons?: { back?: string; next?: string; done?: string }
+  /** An extra class on the card, for a page's own variant. */
+  className?: string
+  /** Whether the card can be folded to its header row (the tour stays open, its keys still step). */
+  collapsible?: boolean
 }) {
-  const [index, setIndex] = useState(0)
+  const [index, setIndex] = useState(() => Math.min(Math.max(0, start), steps.length - 1))
   const [card, setCard] = useState<HTMLElement | null>(null)
+  const [folded, setFolded] = useState(false)
   const step = steps[index]!
   const rects = useTargetRects(step.target)
   const side = useCardSide(card, rects, step)
@@ -302,6 +328,10 @@ export function LearnTour({
   useEffect(() => {
     step.enter?.()
   }, [step])
+
+  useEffect(() => {
+    onStep?.(index)
+  }, [index, onStep])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -337,7 +367,7 @@ export function LearnTour({
 
       <section
         ref={setCard}
-        className={side === 'end' ? 'learn-card is-end' : 'learn-card'}
+        className={['learn-card', side === 'end' ? 'is-end' : '', folded ? 'is-folded' : '', className ?? ''].filter(Boolean).join(' ')}
         role="dialog"
         aria-label={`${label}: ${step.title}`}
       >
@@ -345,8 +375,15 @@ export function LearnTour({
           <span className="learn-card-kicker">{label}</span>
           <span className="learn-card-count">
             {String(index + 1).padStart(2, '0')} / {String(steps.length).padStart(2, '0')}
+            {collapsible ? (
+              <button type="button" className="icon-button learn-card-fold" aria-expanded={!folded} aria-label={folded ? 'Show the guide' : 'Fold the guide'} onClick={() => setFolded((current) => !current)}>
+                <Chevron open={!folded} />
+              </button>
+            ) : null}
           </span>
         </header>
+        {folded ? null : (
+        <>
         <div className="learn-card-progress" aria-hidden="true">
           {steps.map((item, i) => (
             <span key={item.title} className={i <= index ? 'is-done' : undefined} />
@@ -359,7 +396,7 @@ export function LearnTour({
           {step.points ? (
             <ul className="learn-points">
               {step.points.map((point) => (
-                <li key={point}>{point}</li>
+                <li key={point}>{marked(point)}</li>
               ))}
             </ul>
           ) : null}
@@ -376,6 +413,7 @@ export function LearnTour({
               {step.notice}
             </p>
           ) : null}
+          {extra?.(index)}
         </div>
         <footer className="learn-card-actions">
           <button type="button" className="text-button" onClick={onExit}>
@@ -388,17 +426,19 @@ export function LearnTour({
               disabled={index === 0}
               onClick={() => setIndex((current) => Math.max(current - 1, 0))}
             >
-              Back
+              {buttons.back ?? 'Back'}
             </button>
             <button
               type="button"
               className="learn-button is-primary"
               onClick={() => (isLast ? onExit() : setIndex((current) => current + 1))}
             >
-              {isLast ? 'Done' : 'Next'}
+              {isLast ? (buttons.done ?? 'Done') : (buttons.next ?? 'Next')}
             </button>
           </span>
         </footer>
+        </>
+        )}
       </section>
     </div>
   )

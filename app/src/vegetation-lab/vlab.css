@@ -1,0 +1,294 @@
+/* Vegetation Morphology Lab: rules specific to this workspace. The shared instrument layer lives in ui/system.css. */
+.vlab .choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.vlab .choice {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-label);
+  text-align: left;
+  cursor: pointer;
+}
+
+.vlab .choice:hover {
+  color: var(--ui-title);
+}
+
+.vlab .choice[aria-pressed='true'] {
+  border-color: var(--ui-title);
+  color: var(--ui-title);
+}
+
+.vlab .note {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: var(--text-label);
+  line-height: 1.45;
+}
+
+.vlab .note b {
+  color: var(--ui-title);
+  font-weight: 500;
+}
+
+.vlab .panel-section-body > div[data-group] {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vlab .view-strip {
+  gap: 12px;
+}
+
+.vlab .view-strip .readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+.vlab .ref-label {
+  padding: 1px 5px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #e8e4d8;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.vlab .vlab-sub {
+  display: block;
+  margin-top: 2px;
+  color: #a9a597;
+  text-align: center;
+}
+
+/* The island map: a quiet plate with the layer switch and a probe beside it. */
+.vlab-map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 96px 380px 72px 40px;
+  background: #000;
+}
+
+.vlab-map-frame {
+  position: relative;
+  height: 100%;
+  aspect-ratio: 1;
+  max-width: 62%;
+}
+
+.vlab-map-frame canvas {
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+  cursor: crosshair;
+}
+
+.vlab-map-wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: #a9a597;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vlab-map-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 260px;
+  color: var(--ui-text);
+  font-size: var(--text-label);
+  line-height: 1.45;
+}
+
+.vlab-map-side p {
+  margin: 0;
+}
+
+.vlab-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vlab-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  vertical-align: 0;
+}
+
+.vlab-dim {
+  color: var(--ui-muted);
+}
+
+.vlab-probe {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 14px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.vlab-probe dt {
+  color: var(--ui-muted);
+}
+
+.vlab-probe dd {
+  margin: 0;
+  color: var(--ui-title);
+}
+
+.vlab-probe dd.vlab-dim {
+  grid-column: 1 / -1;
+  color: var(--ui-muted);
+}
+
+@media (max-width: 900px) {
+  .vlab-map {
+    flex-direction: column;
+    padding: 80px 16px 72px;
+  }
+  .vlab-map-frame {
+    height: auto;
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.vlab .strategy-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+
+.vlab-map-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-title);
+  font-size: 14px;
+}
+
+.vlab-map-title i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.vlab-map-title span {
+  margin-left: auto;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.vlab-legend i.stipple {
+  background: radial-gradient(currentColor 1px, transparent 1.2px) 0 0 / 3px 3px !important;
+  outline: 1px solid rgba(232, 228, 216, 0.2);
+}
+
+.vlab-legend i.ring {
+  border: 1px dashed rgba(232, 228, 216, 0.6);
+  border-radius: 50%;
+  background: transparent;
+}
+
+/* The view strip's display controls: look, hour and level of detail, on one row. */
+.look-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.look-row .segmented {
+  width: auto;
+}
+.vlab .stage-ticks {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: -8px;
+}
+.vlab .stage-ticks .text-button {
+  font-size: 11px;
+  color: var(--ui-muted);
+}
+.vlab .stage-ticks .text-button[aria-pressed='true'] {
+  color: var(--ui-title);
+  text-decoration: underline;
+}
+
+/* In the narrow panel a four-way switch keeps to its width: tighter padding, and the labels may shrink. */
+.app-chrome .segmented button {
+  min-width: 0;
+  padding: 5px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vlab-legend i.dot {
+  width: 6px;
+  height: 6px;
+  margin: 0 8px 0 2px;
+}
+.vlab-legend b {
+  color: var(--ui-title);
+  font-weight: 500;
+}
+.vlab-map-side .segmented {
+  display: flex;
+}
+.vlab-map-side .segmented button {
+  flex: 1 1 0;
+}
+
+/* The view strip keeps clear of the panel on the right, and its rows wrap instead of running under it. */
+.vlab .view-strip,
+.clab .view-strip {
+  right: calc(var(--panel-w) + 2 * var(--edge));
+}
+.vlab .view-strip-row,
+.clab .view-strip-row {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+/* A four-way switch in the panel wraps to two rows rather than cutting its labels. */
+.app-chrome .segmented:has(> button:nth-child(4)) {
+  flex-wrap: wrap;
+}
+.app-chrome .segmented:has(> button:nth-child(4)) > button {
+  flex: 1 1 calc(50% - 1px);
+  margin-top: -1px;
+  text-overflow: clip;
+}

@@ -1,3 +1,17 @@
 .DS_Store
 .obsidian/
 .firebase/
+.claude/
+
+# Local Firebase web config (never commit)
+app/.env.local
+
+# Accidental tsc/emit companions next to TypeScript sources
+app/**/*.js
+app/vite.config.js
+
+# Temporary probe scripts
+**/*_probe.ts
+
+# Temporary local screenshots in labs
+app/src/creature-lab/_[^.]*

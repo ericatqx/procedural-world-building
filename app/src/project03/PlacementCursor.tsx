@@ -1,8 +1,20 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
-import { Color, DoubleSide, Group, Quaternion, Raycaster, Vector2, Vector3 } from 'three'
+import { useEffect, useRef } from 'react'
+import { Raycaster, Vector2, Vector3 } from 'three'
 import { islandRadius, landscapeHeight } from './terrain.ts'
+import { pickUniforms } from './visualStyle.ts'
 import { WADE_DEPTH, type WaterSystem } from './water.ts'
+
+/**
+ * ONE MARKER for Explore and Approach, drawn by the terrain's and the water's own shaders (visualStyle.ts › pickMarker), so it lies on the ground
+ * wherever the ground goes and on the water surface where the pointer meets water. The same line, dot, fill and colours in both modes; the rings
+ * differ in size only (Round 06): Explore's small (a place to stand), Approach's larger (an area to look at), with the same stroke on screen.
+ */
+export const APPROACH_SCALE = 1.5
+const EXPLORE_SCALE = 0.6
+const LINE_SCALE = 0.16
+/** The ring's radius at a given distance from the camera, metres: a near-constant size on screen, within limits. */
+const markerSize = (distance: number) => Math.min(80, Math.max(1.1, distance * 0.022))
 
 /**
  * Choosing where to stand. While `active`, the pointer is followed over the terrain: a ray from the camera is
@@ -13,12 +25,10 @@ import { WADE_DEPTH, type WaterSystem } from './water.ts'
  */
 export type Placement = { x: number; z: number; yaw: number }
 
-const VALID = new Color('#e6ebf7')
-const INVALID = new Color('#c9605a')
 const EDGE_MARGIN = 10
 
 /** Where the ray meets the ground, or null (sky, or beyond the island). */
-function groundHit(origin: Vector3, direction: Vector3): Vector3 | null {
+export function groundHit(origin: Vector3, direction: Vector3): Vector3 | null {
   const reach = 40000
   let t = 1
   let previous = 1
@@ -54,15 +64,16 @@ function groundHit(origin: Vector3, direction: Vector3): Vector3 | null {
   return null
 }
 
-export function PlacementCursor({ active, water, onPlace }: { active: boolean; water: WaterSystem; onPlace: (placement: Placement) => void }) {
+/**
+ * `kind` 'stand' (Explore): the marker rings where the eyes will be, red where one cannot stand. 'look' (Approach): the same marker, a little larger,
+ * rings the area to look at; a click picks it and asks for no pointer lock.
+ */
+export function PlacementCursor({ active, water, onPlace, kind = 'stand' }: { active: boolean; water: WaterSystem; onPlace: (placement: Placement) => void; kind?: 'stand' | 'look' }) {
   const camera = useThree((state) => state.camera)
   const gl = useThree((state) => state.gl)
-  const group = useRef<Group>(null)
   const hover = useRef<{ point: Vector3; valid: boolean } | null>(null)
   const onPlaceRef = useRef(onPlace)
   onPlaceRef.current = onPlace
-
-  const material = useMemo(() => ({ color: VALID.clone() }), [])
 
   useEffect(() => {
     if (!active) {
@@ -76,9 +87,18 @@ export function PlacementCursor({ active, water, onPlace }: { active: boolean; w
       const rect = element.getBoundingClientRect()
       const ndc = new Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -(((event.clientY - rect.top) / rect.height) * 2 - 1))
       ray.setFromCamera(ndc, camera)
-      const point = groundHit(ray.ray.origin, ray.ray.direction)
-      if (!point) return null
-      const standable = Math.hypot(point.x, point.z) <= islandRadius(Math.atan2(point.z, point.x)) - EDGE_MARGIN && water.depthAt(point.x, point.z) <= WADE_DEPTH
+      const ground = groundHit(ray.ray.origin, ray.ray.direction)
+      if (!ground) return null
+      // Over water the pointer meets the water's surface first: the marker is placed there, where it is seen (the ground hit lies further along the
+      // ray, under the water). Approach may look at water; Explore cannot stand in water deeper than wading depth.
+      let point = ground
+      const surface = water.surfaceAt(ground.x, ground.z)
+      if (surface !== null && surface > ground.y && ray.ray.direction.y < -1e-3) {
+        const t = (surface - ray.ray.origin.y) / ray.ray.direction.y
+        if (t > 0) point = ray.ray.origin.clone().addScaledVector(ray.ray.direction, t)
+      }
+      const inside = Math.hypot(point.x, point.z) <= islandRadius(Math.atan2(point.z, point.x)) - EDGE_MARGIN
+      const standable = inside && (kind === 'look' || water.depthAt(point.x, point.z) <= WADE_DEPTH)
       return { point, valid: standable }
     }
     const move = (event: PointerEvent) => {
@@ -97,10 +117,12 @@ export function PlacementCursor({ active, water, onPlace }: { active: boolean; w
       const forward = new Vector3()
       camera.getWorldDirection(forward)
       // Confirming a place is the click that asks for mouse-look: the lock must be requested inside the gesture.
-      try {
-        void (element.requestPointerLock() as Promise<void> | undefined)?.catch(() => {})
-      } catch {
-        // Unavailable here: Explore falls back to dragging to look.
+      if (kind === 'stand') {
+        try {
+          void (element.requestPointerLock() as Promise<void> | undefined)?.catch(() => {})
+        } catch {
+          // Unavailable here: Explore falls back to dragging to look.
+        }
       }
       onPlaceRef.current({ x: target.point.x, z: target.point.z, yaw: Math.atan2(-forward.x, -forward.z) })
     }
@@ -115,55 +137,24 @@ export function PlacementCursor({ active, water, onPlace }: { active: boolean; w
     element.addEventListener('pointerleave', leave)
     return () => {
       element.style.cursor = previous
+      pickUniforms.uPickOn.value = 0
       element.removeEventListener('pointermove', move)
       element.removeEventListener('pointerdown', press)
       element.removeEventListener('pointerup', release)
       element.removeEventListener('pointerleave', leave)
       hover.current = null
     }
-  }, [active, camera, gl, water])
+  }, [active, camera, gl, water, kind])
 
-  const up = useMemo(() => new Vector3(0, 1, 0), [])
-  const tilt = useMemo(() => new Quaternion(), [])
-  const normal = useMemo(() => new Vector3(), [])
+  // The marker follows the pointer while this mode is choosing (only the active one writes it; its effect's cleanup hides it).
   useFrame(() => {
-    const marker = group.current
-    if (!marker) return
+    if (!active) return
     const h = hover.current
-    marker.visible = active && h !== null
-    if (!active || !h) return
-    const { point, valid } = h
-    // Sits on the ground, leaning with its slope, and grows with distance so it reads from Overview as from nearby.
-    const dx = (landscapeHeight(point.x + 2, point.z) - landscapeHeight(point.x - 2, point.z)) / 4
-    const dz = (landscapeHeight(point.x, point.z + 2) - landscapeHeight(point.x, point.z - 2)) / 4
-    normal.set(-dx, 1, -dz).normalize()
-    tilt.setFromUnitVectors(up, normal)
-    marker.quaternion.copy(tilt)
-    // Over a lake the ring rides the water's surface, in the warning colour, so it can be seen where one cannot stand.
-    const surface = Math.max(point.y, water.surfaceAt(point.x, point.z) ?? point.y)
-    marker.position.set(point.x, surface + 0.15 + point.distanceTo(camera.position) * 0.0015, point.z)
-    const size = Math.min(80, Math.max(1.1, point.distanceTo(camera.position) * 0.022))
-    marker.scale.setScalar(size)
-    material.color.copy(valid ? VALID : INVALID)
-    for (const child of marker.children) ((child as unknown as { material: { color: Color } }).material.color as Color).copy(material.color)
+    pickUniforms.uPickOn.value = h ? (h.valid ? 1 : 2) : 0
+    if (h) {
+      const base = markerSize(h.point.distanceTo(camera.position))
+      pickUniforms.uPick.value.set(h.point.x, h.point.z, base * (kind === 'look' ? APPROACH_SCALE : EXPLORE_SCALE), base * LINE_SCALE)
+    }
   })
-
-  if (!active) return null
-  return (
-    <group ref={group} visible={false} renderOrder={20}>
-      {/* A ring, a dot at its centre, and a faint disc: where the eyes will be, a little over a meter and a half above the ground. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={20}>
-        <ringGeometry args={[0.78, 1, 40]} />
-        <meshBasicMaterial transparent opacity={0.9} depthWrite={false} side={DoubleSide} fog={false} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={20}>
-        <circleGeometry args={[0.1, 16]} />
-        <meshBasicMaterial transparent opacity={0.95} depthWrite={false} side={DoubleSide} fog={false} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={19}>
-        <circleGeometry args={[0.78, 40]} />
-        <meshBasicMaterial transparent opacity={0.1} depthWrite={false} side={DoubleSide} fog={false} />
-      </mesh>
-    </group>
-  )
+  return null
 }

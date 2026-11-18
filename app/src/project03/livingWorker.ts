@@ -1,7 +1,8 @@
 import type { BufferGeometry } from 'three'
 import { planPopulation, type Population } from './livingEcology.ts'
 import type { LateState } from './livingLife.ts'
-import { growOverhang3, type OverhangLife } from './livingOverhang3.ts'
+import { growOverhang3, type OrganismForm, type OverhangLife } from './livingOverhang3.ts'
+import { refinedSeed, refinedWorldForm } from './livingRefined.ts'
 import { growVoxel } from './livingVoxel.ts'
 import { setTerrainSeed } from './terrain.ts'
 import { createWorld, type World } from './world.ts'
@@ -18,16 +19,16 @@ import { createWorld, type World } from './world.ts'
  * Messages out: { type: 'population', seed, population }   { type: 'coarse', key, mesh, site, ground, height }
  *               { type: 'built', key, mesh, stats, site, ground, height }   { type: 'stage', key, id, mesh }
  *
- * Work is queued and taken in order of need, not of arrival: an organism's state (a stage) first, then every organism's
- * coarse form (the same organism sampled about three times more coarsely: a few milliseconds each, so the whole population
- * stands in the scene early and in the right places), then the fine builds, nearest the view first (`view` says where it is).
+ * Work is queued and taken in order of need, not of arrival: an organism's state (a stage) first, then the fine builds,
+ * nearest the view first (`view` says where it is). A coarse stand-in is not queued for the scene: a young organism stays
+ * hidden until the mesh for its age exists.
  */
 
 export type PackedMesh = { attributes: Record<string, { array: Float32Array; itemSize: number }>; index: Uint32Array }
 export type WorkerIn =
   | { type: 'population'; seed: number }
-  | { type: 'build'; key: string; seed: number; index: number; variation: number }
-  | { type: 'coarse'; key: string; seed: number; index: number; variation: number }
+  | { type: 'build'; key: string; seed: number; index: number; variation: number; style?: 'refined' | 'classic' }
+  | { type: 'coarse'; key: string; seed: number; index: number; variation: number; style?: 'refined' | 'classic' }
   | { type: 'view'; x: number; z: number }
   | { type: 'grown'; key: string; seed: number; variation: number }
   | { type: 'voxel'; key: string; seed: number }
@@ -74,6 +75,18 @@ function populationFor(seed: number): Population {
   return population
 }
 
+/** The refined Overhang's form for an organism (the Architecture Lab's, in the world's terms), made once. */
+const refinedForms = new Map<string, OrganismForm>()
+function refinedFor(seed: number, index: number): OrganismForm {
+  const key = `${seed}:${index}`
+  let form = refinedForms.get(key)
+  if (!form) {
+    form = refinedWorldForm(worldFor(seed), populationFor(seed).organisms[index]!)
+    refinedForms.set(key, form)
+  }
+  return form
+}
+
 /** How much coarser the first form of an organism is sampled than its fine one. */
 const COARSE = 2.8
 
@@ -116,7 +129,7 @@ function drain() {
   setTimeout(drain, 0)
 }
 
-/** Keys with a stage request waiting: their builds go first, since the page is already showing the cached mesh for them. */
+/** Keys with a stage request waiting: their builds go first, so the age mesh can be made. The cached mature mesh is not shown in its place. */
 const wanted = new Set<string>()
 
 /** Where an organism stands from the view, for the order of fine builds (the reference's own site until the view is known). */
@@ -131,8 +144,8 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
   if (message.type === 'population') {
     // A copy goes to the page (its series are transferred); the worker keeps its own.
     const own = populationFor(message.seed)
-    const copy: Population = { ...own, series: own.series.map((s) => s.slice()) }
-    post({ type: 'population', seed: message.seed, population: copy }, copy.series.map((s) => s.buffer))
+    const copy: Population = { ...own, series: own.series.map((s) => s.slice()), track: own.track.map((s) => s.slice()) }
+    post({ type: 'population', seed: message.seed, population: copy }, [...copy.series.map((s) => s.buffer), ...copy.track.map((s) => s.buffer)])
     return
   }
   if (message.type === 'view') {
@@ -173,6 +186,13 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
       rank: () => 1 + message.index * 1e-4,
       run: () => {
         const w = worldFor(message.seed)
+        if (message.style === 'refined') {
+          const refined = refinedFor(message.seed, message.index)
+          const rough = growOverhang3(w, refinedSeed(message.index), { variation: 0, coarse: true, outlierStart: 1e5, form: { ...refined, step: (refined.step ?? 0.9) * COARSE } })
+          const [mesh, transfer] = pack(rough.geometry)
+          post({ type: 'coarse', key: message.key, mesh, site: rough.site, ground: rough.ground, height: rough.height }, transfer)
+          return
+        }
         const plan = message.index === 0 ? null : populationFor(message.seed).organisms[message.index]!
         const form = plan ? { ...plan.form, step: (plan.form.step ?? 0.8) * COARSE } : { step: 0.8 * COARSE }
         const built = growOverhang3(w, message.seed, { variation: plan ? plan.variation : message.variation, form })
@@ -187,6 +207,15 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
       rank: () => (wanted.has(message.key) ? 2 : 10 + nearness(message.seed, message.index)),
       run: () => {
         const w = worldFor(message.seed)
+        if (message.style === 'refined') {
+          // The Architecture Lab's refined Overhang, in this organism's habitat and terrain: its life is read at any lifecycle stage.
+          const refined = refinedFor(message.seed, message.index)
+          const grown = growOverhang3(w, refinedSeed(message.index), { variation: 0, life: true, coarse: true, outlierStart: 1e5, form: refined })
+          lives.set(message.key, grown.life!)
+          const [mesh, transfer] = pack(grown.life!.grown())
+          post({ type: 'built', key: message.key, mesh, stats: { ...grown.stats, ...grown.life!.timing }, site: grown.site, ground: grown.ground, height: grown.height }, transfer)
+          return
+        }
         // The reference organism (index 0) is grown exactly as it always was; the others from the form their ground gives.
         const plan = message.index === 0 ? null : populationFor(message.seed).organisms[message.index]!
         const built = growOverhang3(w, message.seed, plan ? { variation: plan.variation, life: true, form: plan.form } : { variation: message.variation, life: true })
@@ -197,7 +226,7 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
     })
     return
   }
-  // A stage request can arrive before the build that makes its lifecycle (the page shows a cached mesh at once): it waits for it.
+  // A stage request can arrive before the build that makes its lifecycle: it waits, and the organism stays hidden until it can run.
   wanted.add(message.key)
   // Nearest the view first among stage requests (distance in metres, scaled to stay under every other kind of job).
   enqueue({

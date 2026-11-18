@@ -1,24 +1,26 @@
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { BasicsWeek } from './weeks/week02/BasicsWeek.tsx'
 import { NoiseTerrainWeek } from './weeks/week03/NoiseTerrainWeek.tsx'
 import { ShadersWeek } from './weeks/week05/ShadersWeek.tsx'
 import { SpatialSystemsWeek } from './weeks/week06/SpatialSystemsWeek.tsx'
 import { BranchingSystemsWeek } from './weeks/week07/BranchingSystemsWeek.tsx'
+import { AgentsScaleWeek } from './weeks/week08/AgentsScaleWeek.tsx'
 import { ShadowEcologyVersions } from './project02/ShadowEcologyVersions.tsx'
 import { VoxelExercise } from './weeks/week04/VoxelExercise.tsx'
 import { AuthBar } from './shared/ui/AuthBar.tsx'
+import { ExerciseNav } from './ExerciseNav.tsx'
 import './App.css'
 
-type WeekId = 'week02' | 'week03' | 'week04' | 'week05' | 'week06' | 'week07' | 'project'
+type WeekId = 'week02' | 'week03' | 'week04' | 'week05' | 'week06' | 'week07' | 'week08' | 'project'
 
-const EXERCISES: { id: WeekId; number: string; name: string }[] = [
+const EXERCISES: { id: Exclude<WeekId, 'project'>; number: string; name: string }[] = [
   { id: 'week02', number: '02', name: 'Basics' },
   { id: 'week03', number: '03', name: 'Terrain' },
   { id: 'week04', number: '04', name: 'Voxels' },
   { id: 'week05', number: '05', name: 'Shaders' },
   { id: 'week06', number: '06', name: 'Spatial Systems' },
   { id: 'week07', number: '07', name: 'Branching Systems' },
-  { id: 'project', number: '', name: 'Project' },
+  { id: 'week08', number: '08', name: 'Agents & Scale' },
 ]
 
 function App() {
@@ -28,27 +30,13 @@ function App() {
     <div className="app-root">
       <header className="app-header">
         <p className="app-identity">Procedural World Building</p>
-        <nav className="exercise-index" role="tablist" aria-label="Exercise">
-          {EXERCISES.map((exercise, index) => (
-            <Fragment key={exercise.id}>
-              {index > 0 ? (
-                <span className="exercise-index-sep" aria-hidden="true">
-                  {exercise.id === 'project' ? '|' : '·'}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                role="tab"
-                aria-selected={week === exercise.id}
-                onClick={() => setWeek(exercise.id)}
-              >
-                {exercise.number ? <span className="exercise-number">{exercise.number}</span> : null}
-                {exercise.name}
-              </button>
-            </Fragment>
-          ))}
-        </nav>
-        <AuthBar />
+        <ExerciseNav items={EXERCISES} active={week} onSelect={(id) => setWeek(id as WeekId)} />
+        <div className="header-end">
+          <button type="button" className="project-link" aria-current={week === 'project' ? 'page' : undefined} onClick={() => setWeek('project')}>
+            Project
+          </button>
+          <AuthBar />
+        </div>
       </header>
 
       {week === 'week02' ? <BasicsWeek /> : null}
@@ -57,6 +45,7 @@ function App() {
       {week === 'week05' ? <ShadersWeek /> : null}
       {week === 'week06' ? <SpatialSystemsWeek /> : null}
       {week === 'week07' ? <BranchingSystemsWeek /> : null}
+      {week === 'week08' ? <AgentsScaleWeek /> : null}
       {week === 'project' ? <ShadowEcologyVersions /> : null}
     </div>
   )

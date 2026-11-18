@@ -18,7 +18,7 @@
   height: var(--header-h);
   display: flex;
   align-items: center;
-  gap: 36px;
+  gap: 28px;
   padding: 0 var(--edge);
   border-bottom: 1px solid var(--rule);
   pointer-events: none;
@@ -36,12 +36,110 @@
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--ui-title);
+  flex: none;
+}
+
+/* The centre region: bounded, so more weeks scroll sideways instead of wrapping, squeezing or reaching the other regions. */
+.exercise-nav {
+  display: flex;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 6px;
 }
 
 .exercise-index {
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
   gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.exercise-nav[data-left='true'] .exercise-index {
+  mask-image: linear-gradient(to right, transparent 0, #000 22px);
+}
+
+.exercise-nav[data-right='true'] .exercise-index {
+  mask-image: linear-gradient(to left, transparent 0, #000 22px);
+}
+
+.exercise-nav[data-left='true'][data-right='true'] .exercise-index {
+  mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+}
+
+.exercise-index::-webkit-scrollbar {
+  display: none;
+}
+
+.exercise-index > * {
+  flex: none;
+}
+
+.nav-arrow {
+  flex: none;
+  width: 18px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.nav-arrow[data-visible='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.nav-arrow:hover {
+  color: var(--ui-title);
+}
+
+/* The right region: always present, never squeezed. */
+.header-end {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 24px;
+  padding-left: 24px;
+  border-left: 1px solid var(--rule);
+}
+
+.project-link {
+  margin: 0;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-label);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.project-link:hover,
+.project-link[aria-current='page'] {
+  color: var(--ui-title);
+}
+
+.project-link[aria-current='page'] {
+  border-bottom-color: var(--ui-title);
 }
 
 .exercise-index-sep {
@@ -81,6 +179,8 @@
 }
 
 .exercise-index button:focus-visible,
+.project-link:focus-visible,
+.nav-arrow:focus-visible,
 .auth-bar button:focus-visible {
   outline: 1px solid var(--ui-title);
   outline-offset: 3px;
@@ -90,8 +190,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-left: auto;
-  min-width: 0;
+  flex: none;
 }
 
 .auth-bar button {
@@ -118,12 +217,10 @@
 }
 
 .auth-name {
-  max-width: 160px;
-  overflow: hidden;
+  flex: none;
   color: var(--ui-muted);
   font-size: var(--text-label);
   white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .auth-error {
@@ -162,12 +259,21 @@
   pointer-events: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 960px) {
   .app-header {
     gap: 16px;
   }
 
-  .app-identity {
+  .header-end {
+    gap: 16px;
+    padding-left: 16px;
+  }
+}
+
+/* Narrow screens: the title and the signed-in name give way; the exercises and Project stay readable. */
+@media (max-width: 720px) {
+  .app-identity,
+  .auth-name {
     display: none;
   }
 }

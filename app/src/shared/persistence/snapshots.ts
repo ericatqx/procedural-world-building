@@ -36,6 +36,8 @@ export type PageId =
   | 'week07trace'
   | 'project'
   | 'project02'
+  /** The /preview site's Explore: a saved view (day, hour, lens, layers, weather); never the island. */
+  | 'explore'
 
 /** Firestore-safe plain data: no undefined, no nested arrays, no typed arrays. */
 export type SnapshotState = Record<string, unknown>

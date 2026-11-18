@@ -92,15 +92,63 @@ export type OrganismForm = {
    * dropped. The reference organism is not anchored: its geometry is the fixed reference.
    */
   anchored?: boolean
+  /**
+   * The world's ground contact: the footing is a little smaller and lower so the base is not a platform, its joint with a slope flares out like
+   * a root buttress instead of a wall, and the piers are stouter, so none is a thin blade. The form is otherwise the Lab's.
+   */
+  grounded?: boolean
   /** 0 to 1: how crowded, shaded or uneven the ground is, unbalancing the masses (lower, broader, leaning to one side). */
   asym?: number
   /** 0 to 1: how near the water's edge it stands: its roots and toes reach farther toward the water, and thicker. */
   shore?: number
   /** 0 to 1: how much a landmark it is: a taller, broader Keep and a longer, heavier Shelf. */
   dominance?: number
+  /** The lab's refined composition (see OverhangCompose). */
+  compose?: OverhangCompose
 }
+/**
+ * Optional composition for the lab's refined Overhang (every field defaults to the reference, which is unchanged without it).
+ * Metres are organism metres; `dw` values are signed toward the water side.
+ *   tops, widths   multipliers on the keep's three masses (rear, middle, mouth side): height, and footprint
+ *   shifts         [du, dw] moves of the middle and mouth-side masses
+ *   lean           each mass's shear toward the light per metre of height (a leaning prow)
+ *   extra          a fourth mass on the plinth (a second tower, or a low buttress mass)
+ *   shelfThick, shelfWidth  multipliers on the great shelf's thickness and half-width
+ *   piers          extra raking piers under the shelf: u (0 to 1 along it), side (-1 to 1 across it), len (metres), lean
+ *   keepPier       whether the reference pier stays (default true)
+ *   soft           0 to 1: how much looser, less regular the outlines are (more of the tissue's own noise)
+ */
+export type OverhangCompose = {
+  tops?: [number, number, number]
+  widths?: [number, number, number]
+  shifts?: [[number, number], [number, number]]
+  lean?: [number, number, number]
+  extra?: { cu: number; cw: number; hu: number; hw: number; top: number; taper: number; lean: number }
+  shelfThick?: number
+  shelfWidth?: number
+  piers?: { u: number; side: number; len: number; lean: number }[]
+  keepPier?: boolean
+  soft?: number
+  /** No great shelf (nor its rib, outlier or lower shelf): the cantilevers are the arms. */
+  noShelf?: boolean
+  /** No cleft between the rear and middle masses (two towers stand apart). */
+  noCleft?: boolean
+  /** Cantilevers of their own: out from a mass in any direction (or bridging two masses), each with its own piers. */
+  arms?: Arm[]
+  /** The strata: how strongly the ledges stand out (1 is the reference) and how far the bands undulate (metres of warp), so they are not level planes. */
+  layering?: { lip: number; warp: number }
+}
+/**
+ * One cantilever arm. `mass` is the mass it leaves (its centre), `ang` the plan direction (0 toward the light, positive toward the water
+ * side), `len` its length, `hw` and `thick` their values at the root and the tip, `top` the height of its upper face at the root, `sag`
+ * how far its tip droops. With `to`, it runs to that mass instead (a bridge) and `ang` and `len` are ignored. `piers` are raking blades
+ * under it: `at` (0 to 1 along it), `len`, `lean`.
+ */
+export type Arm = { mass: number; ang: number; len: number; hw: [number, number]; thick: [number, number]; top: number; sag: number; to?: number; piers?: { at: number; len: number; lean: number }[] }
+type Mass = { cu: number; cw: number; hu: number; hw: number; top: number; taper: number; lean?: number }
+
 /** With `life`, the organism also carries its lifecycle (see livingLife.ts): its shape and growth record at any age. */
-export type Overhang3Options = OverhangOptions & { life?: boolean; form?: OrganismForm }
+export type Overhang3Options = OverhangOptions & { life?: boolean; form?: OrganismForm; /** The lab's faster field (see the sampling loop): the surface is the same, the far field is approximate. */ coarse?: boolean; /** Raw time at which the outlier starts from its own roots (default: its own early start); a very late one lets it arrive only through the shelf that reaches it, so it never stands apart from the growing tower. */ outlierStart?: number }
 export type OverhangLife = {
   /** The geometry at an exact age and, past maturity, a later-life state (see livingLife.ts); the caller owns it. */
   at: (age: number, late?: LateState) => BufferGeometry
@@ -120,19 +168,23 @@ export type GrownOverhang3 = Colony & { life?: OverhangLife }
 /** When the outlier starts growing from its own roots, in raw time (the keep starts at 0). */
 /** Water deeper than this (metres) is too deep to root in. */
 const SHALLOW = 0.8
-/** A body's base may hang this far above the ground (organism metres) before it is read as an arch, and left open. */
-const FOOTING_GAP = 8
+/**
+ * How far a footing may grow down to sloping ground, in organism metres. Keep, feet, outlier, piers and the water runner
+ * are footings. Shelves, the curtain and the undercroft are not, so a cantilever past this stay open.
+ */
+const FOOTING_GAP = 26
 const OUTLIER_START = 30
 /**
  * Growth parts: the owners (0–7), with the outlier (9, part of the keep's field) and the lower shelf and knuckle (8,
  * part of the shelf's owner) told apart. Each part's speed, the delay with which it starts once reached, and the
  * crossings growth may not make (the great shelf grows out from the keep, not up from the outlier or back from the lower
- * shelf; the lower shelf grows from the outlier, not down from the great shelf).
+ * shelf; the lower shelf grows from the outlier, not down from the great shelf). The footing and the keep lead; the
+ * deck, the mezzanine and the runner wait, so a young organism is a grounded mass and not the whole plate.
  */
 const LOWER = 8
 const OUTLIER = 9
-const SPEED = [1.0, 1.6, 1.0, 2.0, 1.0, 1.0, 1.2, 0.8, 1.4, 1.0]
-const DELAY = [0, 18, 26, 0, 20, 35, 4, 2, 14, 0]
+const SPEED = [1.2, 1.35, 1.15, 1.05, 0.95, 0.85, 1.0, 0.75, 1.05, 0.9]
+const DELAY = [0, 20, 6, 16, 22, 36, 14, 16, 18, 0]
 const BARRED: [number, number][] = [
   [OUTLIER, 1],
   [LOWER, 1],
@@ -200,12 +252,17 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
   const S = jitter(1, 0.08)
   const cw0 = (rand() - 0.5) * 3
   // The keep: three vertical masses on one plinth. Rear is tallest; the water-side one is middling; the mouth-side one low.
-  const masses = [
+  const masses: Mass[] = [
     { cu: -27 * S, cw: cw0 - cs * jitter(3, 0.4), hu: jitter(11, 0.12) * S, hw: jitter(12.5, 0.12) * S, top: jitter(35, 0.06) * S, taper: jitter(0.2, 0.3) },
     { cu: -13 * S, cw: cw0 + cs * jitter(8, 0.25), hu: jitter(8.5, 0.15) * S, hw: jitter(8, 0.15) * S, top: jitter(25, 0.1) * S, taper: jitter(0.16, 0.3) },
     { cu: -12 * S, cw: cw0 - cs * jitter(10, 0.2), hu: jitter(8, 0.15) * S, hw: jitter(6.5, 0.15) * S, top: jitter(13, 0.12) * S, taper: jitter(0.1, 0.3) },
   ]
   const plinth = { cu: -19 * S, cw: cw0, hu: jitter(17, 0.08) * S, hw: jitter(20, 0.08) * S, top: jitter(5.5, 0.2) }
+  if (form.grounded) {
+    plinth.hu *= 0.82
+    plinth.hw *= 0.82
+    plinth.top *= 0.8
+  }
   if (form.keep !== undefined && form.keep !== 1) for (const m of masses) m.top *= form.keep
   if (form.spread !== undefined && form.spread !== 1) {
     for (const m of masses) {
@@ -235,11 +292,26 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     masses[0]!.hw *= 1 + 0.1 * dominance
     masses[1]!.top *= 1 + 0.1 * dominance
   }
+  const compose = form.compose
+  if (compose) {
+    for (let i = 0; i < 3; i += 1) {
+      const m = masses[i]!
+      m.top *= compose.tops?.[i] ?? 1
+      m.hu *= compose.widths?.[i] ?? 1
+      m.hw *= compose.widths?.[i] ?? 1
+      m.lean = compose.lean?.[i] ?? 0
+    }
+    compose.shifts?.forEach(([du, dw], i) => {
+      masses[i + 1]!.cu += du
+      masses[i + 1]!.cw += cs * dw
+    })
+  }
   const shore = form.shore ?? 0
   // Without the low mass the mouth side is only the plinth.
   if (form.lowMass === false) masses[2]!.top = Math.min(masses[2]!.top, plinth.top)
-  const keepTop = Math.max(...masses.map((m) => m.top))
   const keepFace = Math.max(...masses.map((m) => m.cu + m.hu))
+  if (compose?.extra) masses.push({ ...compose.extra, cw: cw0 + cs * compose.extra.cw })
+  const keepTop = Math.max(...masses.map((m) => m.top))
   // Strata bands: their heights vary; each band's ledge appears only on lit faces, in runs.
   const bands: { y0: number; y1: number; lip: number; phase: number }[] = []
   for (let y = plinth.top - 1; y < keepTop + 2; ) {
@@ -248,11 +320,25 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     y += h
   }
   const cleft = { u: masses[0]!.cu + masses[0]!.hu - jitter(2, 0.4), w0: cw0 - 2, w1: cw0 + cs * 22, half: jitter(1.3, 0.2), from: plinth.top + jitter(11, 0.25) }
+  if (compose?.noCleft) cleft.from = 1e9
   // Shaded hollows in the keep that have drawn back: the rear face, and a grotto off the undercroft.
   const recesses: { c: V; r: V }[] = [
     { c: [masses[0]!.cu - masses[0]!.hu, jitter(9, 0.3), masses[0]!.cw + (rand() - 0.5) * 6], r: [5, jitter(3.4, 0.2), jitter(9, 0.2)] },
     { c: [masses[2]!.cu + masses[2]!.hu * 0.4, 3.2, masses[2]!.cw - cs * masses[2]!.hw], r: [jitter(6, 0.2), 4.6, 5.5] },
   ]
+  // OPENINGS, audited. The generator makes these hollows and gaps. What each is, and whether it leads anywhere a creature can use:
+  //   undercroft   the open space under the great shelf, open from the mouth side and to the ground. Usable. KEPT.
+  //   fissure      the curtain's slot: below, the den's doorway into the undercroft. Usable. KEPT (an arch standing on its floor, grounded).
+  //   cleft        the deep slot between the rear and water-side masses: part of the approved silhouette. KEPT.
+  //   grotto       a half-dome hollowed out of the mouth-side mass at its foot: seen from outside, a small semicircular hole at the base, and at that height
+  //                on the plinth it opens onto nothing. NOT CUT, grounded.
+  //   rear recess  a hollow high on the rear wall that nothing reaches. NOT CUT, grounded.
+  //   pockets      three shallow domes in the shelf's underside: ceiling dimples, not spaces. NOT CUT, grounded.
+  //   bites        notches out of the shelf's edge. NOT CUT, grounded.
+  //   light well   a hole through the shelf over nothing in particular. NOT CUT, grounded.
+  //   old holes    round holes through the old shelf: they do not lead anywhere. NOT CUT, grounded.
+  // So for the world's organisms (`grounded`) the openings that remain are the ones that lead somewhere, and the doorway is kept clear (the piers below).
+  if (form.grounded) recesses.splice(0)
   // Two bodies, not a bridge. The keep is the old, large body; out toward the light stands a second, younger body of the
   // same tissue (the outlier), rooted where the ground is moist. The great shelf grows from the keep toward the light and
   // comes to rest on the outlier's shoulder; a second, lower shelf grows from the outlier back under the great shelf's end
@@ -286,6 +372,15 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     shelf.hwRoot *= 1 + 0.08 * dominance
   }
   if (form.swing !== undefined && form.swing !== 1) shelf.swing *= form.swing
+  if (compose?.shelfThick) {
+    shelf.thickRoot *= compose.shelfThick
+    shelf.thickTip *= compose.shelfThick
+  }
+  if (compose?.shelfWidth) {
+    shelf.hwRoot *= compose.shelfWidth
+    shelf.hwWaist *= compose.shelfWidth
+    shelf.hwTip *= compose.shelfWidth
+  }
   const rise = 1 + (form.rise ?? 0)
   const footT = jitter(0.86, 0.03)
   const along = (u: number) => clamp01((u - keepFace) / (shelf.tip - keepFace))
@@ -313,6 +408,8 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     const u = keepFace + jitter(t, 0.1) * (shelf.tip - keepFace)
     return { u, r: [jitter(4.5, 0.2), 6, jitter(3.4, 0.2)] as V }
   })
+  if (form.grounded) bites.splice(0)
+  if (form.grounded) pockets.splice(0)
   const tangent = (u: number): [number, number] => {
     const s = (shelfCwAt(u + 2) - shelfCwAt(u - 2)) / 4
     const l = Math.hypot(1, s)
@@ -384,11 +481,63 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     top: shelfBottomAt(pierU) + 1.2,
     g: [-jitter(3.5, 0.2), jitter(1.5, 0.3)],
     t: [jitter(1.5, 0.3), jitter(8, 0.2)],
-    h: [jitter(2.3, 0.1), 1.5],
+    h: form.grounded ? [jitter(2.3, 0.1) * 1.12, 1.8] : [jitter(2.3, 0.1), 1.5],
     lean: cs * jitter(1.2, 0.4),
     pg: 1,
     pt: 1.3,
   }
+  // The refined composition's own piers: raking blades under the shelf at chosen places, heads leaning back toward the keep.
+  // Grounded piers are columns, not planks: shorter along the shelf, so the gaps between them are a hollow a Dweller (about 1 m long) walks into.
+  const pl = form.grounded ? 0.7 : 1
+  // Grounded: no pier stands within reach of the den's doorway (the fissure), so what it opens onto is open floor under the shelf, not a pier.
+  // (Read when the field is sampled, after the fissure is placed.)
+  const clearOfDoor = (u: number) => !form.grounded || Math.abs(u - fissure.u) > 9
+  const extraPiers: Fin[] = (compose?.piers ?? []).map((P) => {
+    const u = keepFace + P.u * (shelf.tip - keepFace)
+    const tg = tangent(u)
+    return {
+      o: [u, shelfCwAt(u) + P.side * shelfHwAt(u) * 0.62] as [number, number],
+      dir: [-tg[0], -tg[1]] as [number, number],
+      top: shelfBottomAt(u) + 1.2,
+      g: [-P.len * 0.55 * pl, P.len * 0.25 * pl] as [number, number],
+      t: [P.len * 0.2 * pl, P.len * pl] as [number, number],
+      h: (form.grounded ? [2.7, 1.8] : [2.5, 1.5]) as [number, number],
+      lean: cs * P.lean,
+      pg: 1,
+      pt: 1.3,
+    }
+  })
+  // The refined composition's arms: cantilevers out from (or between) the masses, each with raking piers under it.
+  type ArmR = { o: [number, number]; dir: [number, number]; len: number; hw: [number, number]; thick: [number, number]; top: number; sag: number }
+  const arms: ArmR[] = (compose?.arms ?? []).map((A) => {
+    const m = masses[Math.min(A.mass, masses.length - 1)]!
+    const o: [number, number] = [m.cu, m.cw]
+    if (A.to !== undefined) {
+      const T = masses[Math.min(A.to, masses.length - 1)]!
+      const dl = Math.hypot(T.cu - m.cu, T.cw - m.cw) || 1
+      return { o, dir: [(T.cu - m.cu) / dl, (T.cw - m.cw) / dl], len: dl, hw: A.hw, thick: A.thick, top: A.top, sag: A.sag }
+    }
+    return { o, dir: [Math.cos(A.ang), cs * Math.sin(A.ang)], len: A.len, hw: A.hw, thick: A.thick, top: A.top, sag: A.sag }
+  })
+  const armTopAt = (R: ArmR, t: number) => R.top - R.sag * t ** 1.6
+  const armThickAt = (R: ArmR, t: number) => R.thick[0] + (R.thick[1] - R.thick[0]) * t
+  const armPiers: Fin[] = []
+  ;(compose?.arms ?? []).forEach((A, i) => {
+    const R = arms[i]!
+    for (const P of A.piers ?? []) {
+      armPiers.push({
+        o: [R.o[0] + R.dir[0] * P.at * R.len, R.o[1] + R.dir[1] * P.at * R.len],
+        dir: [-R.dir[0], -R.dir[1]],
+        top: armTopAt(R, P.at) - armThickAt(R, P.at) + 1.2,
+        g: [-P.len * 0.55 * pl, P.len * 0.25 * pl],
+        t: [P.len * 0.2 * pl, P.len * pl],
+        h: form.grounded ? [2.8, 1.8] : [2.6, 1.6],
+        lean: cs * P.lean,
+        pg: 1,
+        pt: 1.3,
+      })
+    }
+  })
   // The old shelf: an earlier growth from high on the rear mass, toward an earlier light, now ageing. It has crept and
   // sagged, thinned and frayed at its edges, been holed where tissue died, and broken: its outer part has slumped onto the
   // great shelf below and fused there.
@@ -423,8 +572,35 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
   // Only near the keep, where it is dampest and most shaded, has the rim grown down: beyond it the undercroft looks through.
   const curtain = { u0: keepFace - 2, u1: keepFace + jitter(13, 0.15) * S, thick: jitter(1.5, 0.15), setback: jitter(6, 0.2) }
   const fissure = { u: keepFace + jitter(6, 0.15) * S, half: jitter(1.6, 0.15) }
+  // The visible opening under the shelf is the curtain's fissure. Grounded, the wall is substantial and the fissure is a real arched doorway into the
+  // undercroft (a Hollow Dweller's den): wide, with a rounded lintel, its width and height varying from organism to organism by the seed.
+  const door = { half: fissure.half, top: 0, floor: 0 }
+  if (form.grounded) {
+    const hv = (k: number) => {
+      const x = Math.sin((seed + 1) * 12.9898 + k * 78.233 + 4.1) * 43758.5453
+      return x - Math.floor(x)
+    }
+    curtain.thick *= 1.6
+    door.half = 2.4 + 1.2 * hv(3)
+    door.top = 5.5 + 3 * hv(4)
+    fissure.u += (hv(5) - 0.5) * 4
+    // Its floor is what it stands on: the plinth's top where the curtain stands over the plinth, the ground otherwise.
+    const edgeW = shelfCwAt(fissure.u) + cs * (shelfHwAt(fissure.u) - curtain.setback)
+    door.floor = rect2(fissure.u - plinth.cu, edgeW - plinth.cw, plinth.hu, plinth.hw, 8) < 0 ? plinth.top : 0
+  }
   const runner = (() => {
-    const start: V = [plinth.cu + waterLocal[0] * plinth.hu * 0.8, -0.8, plinth.cw + waterLocal[1] * plinth.hw * 0.8]
+    // THE WATER RUNNER: a mineral ridge that creeps from the plinth toward the water. It was laid at one fixed height (just under the site's ground) and a
+    // radius of 3.6 m, whatever the ground did: on the world's slopes it floated or was half buried, and where it left the plinth its round end showed as a
+    // coarse semicircular dome (against the terrain, a semicircular cutout) at the foot of the structure, on the water side. Found by switching it off: the
+    // dome goes with it. Grounded, it follows the ground it lies on as a low ridge half sunk in it, narrower, and it starts well inside the plinth so it
+    // leaves it as a ridge and not as a mouth.
+    const down = (u: number, w: number) => {
+      const p = toWorld(u, w, 0)
+      return (landscapeHeight(p[0], p[2]) - g0) / size
+    }
+    const startU = plinth.cu + waterLocal[0] * plinth.hu * (form.grounded ? 0.55 : 0.8)
+    const startW = plinth.cw + waterLocal[1] * plinth.hw * (form.grounded ? 0.55 : 0.8)
+    const start: V = [startU, form.grounded ? down(startU, startW) - 0.9 : -0.8, startW]
     const length = jitter(24, 0.2) * (1 + 0.9 * shore)
     const bend = (rand() - 0.5) * 0.6
     const pts: V[] = [start]
@@ -432,21 +608,53 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
       const t = i / 5
       const ang = Math.atan2(waterLocal[1], waterLocal[0]) + bend * Math.sin(t * Math.PI)
       const prev = pts[i - 1]!
-      pts.push([prev[0] + Math.cos(ang) * (length / 5), -0.8 - 0.6 * t, prev[2] + Math.sin(ang) * (length / 5)])
+      const nu = prev[0] + Math.cos(ang) * (length / 5)
+      const nw = prev[2] + Math.sin(ang) * (length / 5)
+      pts.push([nu, form.grounded ? down(nu, nw) - 0.9 : -0.8 - 0.6 * t, nw])
     }
     return pts
   })()
 
   // ------------------------------------------------------------------------------------------------ field
-  const U0 = -48
-  const U1 = hasOutlier ? Math.max(lobe.u1 + 12, outlier.cu + outlier.hu + 22) : shelf.tip + 14
-  const W0 = -36
-  const W1 = 36
-  const Y0 = -10
-  const Y1 = keepTop + 6
+  let U0 = -48
+  let U1 = hasOutlier ? Math.max(lobe.u1 + 12, outlier.cu + outlier.hu + 22) : shelf.tip + 14
+  let W0 = -36
+  let W1 = 36
+  for (const R of arms) {
+    const eu = R.o[0] + R.dir[0] * R.len
+    const ew = R.o[1] + R.dir[1] * R.len
+    const pad = Math.max(R.hw[0], R.hw[1]) + 10
+    U0 = Math.min(U0, Math.floor(Math.min(R.o[0], eu) - pad))
+    U1 = Math.max(U1, Math.ceil(Math.max(R.o[0], eu) + pad))
+    W0 = Math.min(W0, Math.floor(Math.min(R.o[1], ew) - pad))
+    W1 = Math.max(W1, Math.ceil(Math.max(R.o[1], ew) + pad))
+  }
+  if (compose) for (const m of masses) {
+    U0 = Math.min(U0, Math.floor(m.cu - m.hu - 8))
+    W0 = Math.min(W0, Math.floor(m.cw - m.hw - 8))
+    W1 = Math.max(W1, Math.ceil(m.cw + m.hw + 8))
+  }
   const dx = Math.ceil((U1 - U0) / step) + 1
-  const dy = Math.ceil((Y1 - Y0) / step) + 1
   const dz = Math.ceil((W1 - W0) / step) + 1
+  const groundLocal = new Float32Array(dx * dz)
+  /** Columns whose ground lies under more than a shallow depth of water: no root or footing may take hold there. */
+  const deepLocal = new Uint8Array(dx * dz)
+  const anchored = form.anchored === true
+  let lowest = 0
+  for (let z = 0; z < dz; z += 1) {
+    for (let x = 0; x < dx; x += 1) {
+      const p = toWorld(U0 + x * step, W0 + z * step, 0)
+      const g = (landscapeHeight(p[0], p[2]) - g0) / size
+      groundLocal[z * dx + x] = g
+      if (g < lowest) lowest = g
+      if (anchored && world.water.depthAt(p[0], p[2]) > SHALLOW) deepLocal[z * dx + x] = 1
+    }
+  }
+  // Level ground keeps the old floor at -10, so a flat reference (Seed 7 on its site) is sampled on the same grid.
+  // A steep site extends the grid down to its own ground, capped so the field stays bounded.
+  const Y0 = anchored ? Math.min(-10, Math.max(-42, Math.floor(lowest - 3))) : -10
+  const Y1 = keepTop + 6
+  const dy = Math.ceil((Y1 - Y0) / step) + 1
   const field = new Float32Array(dx * dy * dz)
   const owner = new Uint8Array(dx * dy * dz)
   /** Which part's growth each sample belongs to: the owners, with the outlier and the lower shelf told apart. */
@@ -464,18 +672,9 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     }
   }
   const fidx = (x: number, y: number, z: number) => (z * dy + y) * dx + x
-  const groundLocal = new Float32Array(dx * dz)
-  /** Columns whose ground lies under more than a shallow depth of water: no root or footing may take hold there. */
-  const deepLocal = new Uint8Array(dx * dz)
-  const anchored = form.anchored === true
-  for (let z = 0; z < dz; z += 1) {
-    for (let x = 0; x < dx; x += 1) {
-      const p = toWorld(U0 + x * step, W0 + z * step, 0)
-      groundLocal[z * dx + x] = (landscapeHeight(p[0], p[2]) - g0) / size
-      if (anchored && world.water.depthAt(p[0], p[2]) > SHALLOW) deepLocal[z * dx + x] = 1
-    }
-  }
   const nseed = (seed % 997) + variation * 13.7
+  const softK = 1 + (compose?.soft ?? 0)
+  const layering = compose?.layering
 
   /** A directional fin: a blade along `dir` whose span along it runs from g (at the ground) to t (at its top), curving
    *  between (the exponents), thickening toward the ground, leaning across by `lean` at the top. */
@@ -501,21 +700,23 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
   let keepOutlier = false
   let keepFull = 0
   const keepField = (u: number, w: number, y: number, np: number): number => {
-    // The band this height is in, and where in it.
+    // The band this height is in, and where in it (the bands undulate with the layering option: they are not level planes).
+    const yb = layering ? y + layering.warp * 2 * (vnoise(u / 11 + nseed, w / 11, y / 17 + 2.3) - 0.5) : y
     let band = bands[0]!
-    for (const B of bands) if (y >= B.y0) band = B
-    const t = clamp01((y - band.y0) / (band.y1 - band.y0))
+    for (const B of bands) if (yb >= B.y0) band = B
+    const t = clamp01((yb - band.y0) / (band.y1 - band.y0))
     let d = Infinity
     let nearest = Infinity
     keepOutlier = false
     for (const m of masses) {
-      const du = u - m.cu
+      const du = u - m.cu - (m.lean ?? 0) * Math.max(0, y)
       const dw = w - m.cw
       // Which way this point of the outline faces, in plan: light grows ledges, shade grows recessed bands.
       const l = Math.hypot(du / m.hu, dw / m.hw) || 1
       const lit = clamp01(0.45 + 0.75 * (du / m.hu / l))
-      const run = smoothstep(0.42, 0.62, vnoise(Math.atan2(dw, du) * 2.2 + band.phase, band.phase, 0.3))
-      const ledge = band.lip * smoothstep(0.55, 1, t) * lit * run
+      // The ledge is zero in the lower half of a band whatever the run is, so the noise is only needed above it.
+      const run = t > 0.55 ? smoothstep(0.42, 0.62, vnoise(Math.atan2(dw, du) * 2.2 + band.phase, band.phase, 0.3)) : 0
+      const ledge = band.lip * (layering ? layering.lip : 1) * smoothstep(0.55, 1, t) * lit * run
       const groove = 0.9 * (1 - lit) * (1 - smoothstep(0, 0.22, t))
       const shrink = 1 - m.taper * clamp01(y / m.top)
       const d2 = rect2(du, dw, m.hu * shrink, m.hw * shrink, Math.min(m.hu, m.hw) * 0.4) - ledge + groove - np * 0.6
@@ -536,7 +737,9 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     d = smax(d, -cleftD, 1.2)
     recede(cleftD, CLEFT)
     for (const R of recesses) {
-      const e = ellipsoid(u, y, w, R.c, R.r)
+      const e0 = ellipsoid(u, y, w, R.c, R.r)
+      // Grounded: a hollow in the standing mass, never a hole through the plinth's floor.
+      const e = form.grounded ? Math.max(e0, plinth.top - 0.5 - y) : e0
       d = smax(d, -e, 1.6)
       recede(e, RECESS)
     }
@@ -544,7 +747,7 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
   }
 
   const sample = (u: number, w: number, y: number): [number, number, number, number] => {
-    const np = 2 * (vnoise(u / 17 + nseed, w / 17, 0.5) - 0.5) * 1.6 + 2 * (vnoise(u / 6.5, w / 6.5 + nseed, 3.1) - 0.5) * 0.45
+    const np = (2 * (vnoise(u / 17 + nseed, w / 17, 0.5) - 0.5) * 1.6 + 2 * (vnoise(u / 6.5, w / 6.5 + nseed, 3.1) - 0.5) * 0.45) * softK
     const n3 = 2 * (vnoise(u / 11 + 4.1, y / 8, w / 11 + nseed) - 0.5) * 0.3
     let best = Infinity
     let full = Infinity
@@ -567,7 +770,7 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
 
     // Great shelf: a plan that follows its trajectory, two strata (the lower, older one stops short of the growth front),
     // a haunch at the root, a lip that thickens downward, and local recession.
-    {
+    if (!compose?.noShelf) {
       const cwu = shelfCwAt(u)
       const slope = (shelfCwAt(u + 1) - shelfCwAt(u - 1)) / 2
       const hw = shelfHwAt(u)
@@ -582,7 +785,7 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
         recede(e, BITE)
       }
       const wellD = rect2(u - well.u, w - (shelfCwAt(well.u) + well.dw), well.hu, well.hw, Math.min(well.hu, well.hw) * 0.9) + 0.5 * (vnoise(u / 3, w / 3, nseed) - 0.5)
-      d2 = smax(d2, -wellD, 1)
+      if (!form.grounded) d2 = smax(d2, -wellD, 1)
       recede(wellD, WELL)
       const t = along(u)
       const top = shelfTopAt(u)
@@ -606,7 +809,7 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     }
 
     // The load rib, along the shelf's trajectory.
-    for (let i = 0; i < rib.length - 1; i += 1) put(capsule([u, y, w], rib[i]!, rib[i + 1]!, ribR * (1 - 0.04 * i), ribR * (1 - 0.04 * (i + 1))) * 0.9, SHELF, 2.4)
+    if (!compose?.noShelf) for (let i = 0; i < rib.length - 1; i += 1) put(capsule([u, y, w], rib[i]!, rib[i + 1]!, ribR * (1 - 0.04 * i), ribR * (1 - 0.04 * (i + 1))) * 0.9, SHELF, 2.4)
 
     // The foot's fins and toes, and the pier.
     if (hasOutlier) for (const F of fins) put(fin(u, y, w, F) + 0.35 * np, FOOT, 2.6)
@@ -627,7 +830,23 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
       put(smin(upper, lower, 0.7), SHELF, 2.2, LOWER)
       put(ellipsoid(u, y, w, knuckle.c, knuckle.r), SHELF, 2.6, LOWER)
     }
-    put(fin(u, y, w, pierFin) + 0.3 * np, SPINE, 2.2)
+    if (compose?.keepPier !== false && clearOfDoor(pierU)) put(fin(u, y, w, pierFin) + 0.3 * np, SPINE, form.grounded ? 2.8 : 2.2)
+    for (const F of extraPiers) if (clearOfDoor(F.o[0])) put(fin(u, y, w, F) + 0.3 * np, SPINE, form.grounded ? 2.8 : 2.2)
+    for (const F of armPiers) put(fin(u, y, w, F) + 0.3 * np, SPINE, form.grounded ? 2.8 : 2.2)
+    // The refined composition's arms: a rounded slab out from a mass, its tip drooping, its underside thickening at the edge.
+    for (const R of arms) {
+      const pu = u - R.o[0]
+      const pw = w - R.o[1]
+      const s = pu * R.dir[0] + pw * R.dir[1]
+      const q = -pu * R.dir[1] + pw * R.dir[0]
+      const t = clamp01(s / R.len)
+      const hw = R.hw[0] + (R.hw[1] - R.hw[0]) * t
+      const hl = (R.len + 6) / 2
+      const d2 = rect2(s - (R.len - 6) / 2, q, hl, hw, Math.min(hw, 5) * 0.8) - np * 0.6
+      const thick = armThickAt(R, t)
+      const top = armTopAt(R, t)
+      put(slab(d2, y, top - thick - 0.9 * (1 - smoothstep(-3, -0.5, d2)), top, 1), SHELF, 2.2)
+    }
 
     // The old shelf: sagging, frayed, holed, broken, its outer part slumped onto the great shelf.
     if (form.oldShelf ?? true) {
@@ -651,7 +870,7 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
       const gap = Math.abs(s - (breakS + oldS.gap / 2)) - oldS.gap / 2 - 0.8 * (vnoise(q / 2 + nseed, y / 2, 6.6) - 0.5)
       d = smax(d, -gap, 0.6)
       recede(gap, OLD_GAP)
-      for (const H of oldS.holes) {
+      for (const H of form.grounded ? [] : oldS.holes) {
         const hole = Math.hypot(s - H.s * oldS.len, q - H.q) - H.r - 0.3 * (vnoise(y, s / 2, nseed) - 0.5)
         d = smax(d, -hole, 0.6)
         recede(hole, OLD_HOLE)
@@ -677,7 +896,13 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
       const edgeW = shelfCwAt(u) + cs * (shelfHwAt(u) - curtain.setback)
       let d2 = rect2(u - (curtain.u0 + curtain.u1) / 2, w - edgeW, (curtain.u1 - curtain.u0) / 2, curtain.thick, curtain.thick * 0.95) - np * 0.6
       d2 -= 1.6 * Math.exp(-Math.max(0, y) / 2.2)
-      const gap = Math.abs(u - fissure.u) - fissure.half - 0.6 * (vnoise(y / 3, nseed, 1) - 0.5)
+      const wobble = 0.6 * (vnoise(y / 3, nseed, 1) - 0.5)
+      // Grounded: an arch (an ellipse standing on the ground) instead of a slot the whole height of the wall.
+      const gap = form.grounded
+        ? y >= door.floor
+          ? (Math.hypot((u - fissure.u) / door.half, (y - door.floor) / door.top) - 1) * Math.min(door.half, door.top) - wobble
+          : Math.abs(u - fissure.u) - door.half
+        : Math.abs(u - fissure.u) - fissure.half - wobble
       put(smax(slab(d2, y, -6, shelfTopAt(u) - shelfThickAt(u) * 0.5, 1), -gap, 0.8), CURTAIN, 2.6)
     }
 
@@ -685,64 +910,101 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     for (let i = 0; i < runner.length - 1; i += 1) {
       const t0 = i / (runner.length - 1)
       const t1 = (i + 1) / (runner.length - 1)
-      put(capsule([u, y, w], runner[i]!, runner[i + 1]!, 3.6 - 2.2 * t0, 3.6 - 2.2 * t1), RUNNER, 2.5)
+      put(capsule([u, y, w], runner[i]!, runner[i + 1]!, form.grounded ? 2.4 - 1.5 * t0 : 3.6 - 2.2 * t0, form.grounded ? 2.4 - 1.5 * t1 : 3.6 - 2.2 * t1), RUNNER, 2.5)
     }
     return [best + n3, who, part, full + n3]
   }
 
-  for (let z = 0; z < dz; z += 1) {
-    const w = W0 + z * step
-    for (let x = 0; x < dx; x += 1) {
-      const u = U0 + x * step
-      const g = groundLocal[z * dx + x]!
-      for (let y = 0; y < dy; y += 1) {
-        const yy = Y0 + y * step
-        let [d, who, grows, df] = sample(u, w, yy)
-        if (yy < g - 1.2) {
-          d = Math.max(d, g - 1.2 - yy)
-          df = Math.max(df, g - 1.2 - yy)
-        }
-        field[fidx(x, y, z)] = -d
-        owner[fidx(x, y, z)] = who
-        part[fidx(x, y, z)] = grows
-        if (fullField) {
-          fullField[fidx(x, y, z)] = df
-          recessionOf[fidx(x, y, z)] = recession
+  const evalCell = (x: number, y: number, z: number) => {
+    const g = groundLocal[z * dx + x]!
+    const yy = Y0 + y * step
+    let [d, who, grows, df] = sample(U0 + x * step, W0 + z * step, yy)
+    if (yy < g - 1.2) {
+      d = Math.max(d, g - 1.2 - yy)
+      df = Math.max(df, g - 1.2 - yy)
+    }
+    field[fidx(x, y, z)] = -d
+    owner[fidx(x, y, z)] = who
+    part[fidx(x, y, z)] = grows
+    if (fullField) {
+      fullField[fidx(x, y, z)] = df
+      recessionOf[fidx(x, y, z)] = recession
+    }
+  }
+  if (!options.coarse) {
+    for (let z = 0; z < dz; z += 1) for (let x = 0; x < dx; x += 1) for (let y = 0; y < dy; y += 1) evalCell(x, y, z)
+  } else {
+    // Coarse first (the lab): every third sample is taken exactly; a cell whose eight surrounding coarse samples all lie well inside, or
+    // well outside, the surface keeps their sign and an interpolated depth (the mesh and the lifecycle only need the sign away from
+    // the surface); the cells near the surface are all sampled exactly, so the surface itself is the same.
+    const C = 3
+    const near = 8 * step
+    const cnx = Math.ceil((dx - 1) / C) + 1
+    const cny = Math.ceil((dy - 1) / C) + 1
+    const cnz = Math.ceil((dz - 1) / C) + 1
+    const at = (i: number, n: number) => Math.min(n - 1, i * C)
+    const exact = new Uint8Array(dx * dy * dz)
+    for (let cz = 0; cz < cnz; cz += 1) for (let cx = 0; cx < cnx; cx += 1) for (let cy = 0; cy < cny; cy += 1) {
+      const x = at(cx, dx)
+      const y = at(cy, dy)
+      const z = at(cz, dz)
+      evalCell(x, y, z)
+      exact[fidx(x, y, z)] = 1
+    }
+    for (let z = 0; z < dz; z += 1) {
+      const cz0 = Math.floor(z / C)
+      const cz1 = Math.min(cnz - 1, cz0 + 1)
+      for (let x = 0; x < dx; x += 1) {
+        const cx0 = Math.floor(x / C)
+        const cx1 = Math.min(cnx - 1, cx0 + 1)
+        for (let y = 0; y < dy; y += 1) {
+          const i = fidx(x, y, z)
+          if (exact[i]) continue
+          const cy0 = Math.floor(y / C)
+          const cy1 = Math.min(cny - 1, cy0 + 1)
+          let sign = 0
+          let far = true
+          let nearest = -1
+          let nearestD = Infinity
+          for (let k = 0; k < 8 && far; k += 1) {
+            const gx = at((k & 1) === 0 ? cx0 : cx1, dx)
+            const gy = at((k & 2) === 0 ? cy0 : cy1, dy)
+            const gz = at((k & 4) === 0 ? cz0 : cz1, dz)
+            const j = fidx(gx, gy, gz)
+            const v = field[j]!
+            const f = fullField ? fullField[j]! : v
+            if (Math.abs(v) < near || Math.abs(f) < near) far = false
+            const sg = v > 0 ? 1 : -1
+            if (sign === 0) sign = sg
+            else if (sg !== sign) far = false
+            const dd = Math.abs(gx - x) + Math.abs(gy - y) + Math.abs(gz - z)
+            if (dd < nearestD) {
+              nearestD = dd
+              nearest = j
+            }
+          }
+          if (!far) {
+            evalCell(x, y, z)
+            continue
+          }
+          // Far from the surface: the nearest coarse sample's values (the depth only has to stay beyond the near band).
+          field[i] = field[nearest]!
+          owner[i] = owner[nearest]!
+          part[i] = part[nearest]!
+          if (fullField) {
+            fullField[i] = fullField[nearest]!
+            recessionOf[i] = recessionOf[nearest]!
+          }
         }
       }
     }
   }
-  // Anchoring (organisms other than the reference): a body hovering over sloping ground grows down to it, then whatever is
-  // not joined to tissue standing on land (or in shallows) is dropped.
+  // Anchoring: a footing hovering over sloping ground grows down to it (and, on a steep slope, batters out a little).
+  // Whatever is then not joined to tissue standing on land or in the shallows is dropped. Shelves stay where they are.
   let anchoredAway = 0
   const columnsOf = { dx, dy, dz, Y0, step }
   if (anchored) {
-    for (let z = 0; z < dz; z += 1) {
-      for (let x = 0; x < dx; x += 1) {
-        if (deepLocal[z * dx + x]) continue
-        const g = groundLocal[z * dx + x]!
-        const first = Math.max(0, Math.ceil((g - 1.2 - Y0) / step))
-        let low = -1
-        for (let y = first; y < dy; y += 1) {
-          if (field[fidx(x, y, z)]! > 0) {
-            low = y
-            break
-          }
-        }
-        if (low <= first) continue
-        const who = owner[fidx(x, low, z)]!
-        const kind = part[fidx(x, low, z)]!
-        if (kind !== KEEP && kind !== FOOT && kind !== OUTLIER) continue
-        if (Y0 + low * step - g > FOOTING_GAP) continue
-        for (let y = first; y < low; y += 1) {
-          const i = fidx(x, y, z)
-          field[i] = 0.5
-          owner[i] = who
-          part[i] = kind
-          if (fullField) fullField[i] = -0.5
-        }
-      }
-    }
+    seatOnGround(field, fullField, owner, part, columnsOf, groundLocal, deepLocal, form.grounded === true)
     anchoredAway = anchorField(field, fullField, columnsOf, groundLocal, deepLocal)
   }
   const grownAt = performance.now()
@@ -934,7 +1196,7 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
           const i = fidx(x, y, z)
           if (dRef[i]! >= 0) continue
           if (part[i] === KEEP && u < keepFace + 4) seeds.push({ index: i, time: 0 })
-          else if (part[i] === OUTLIER) seeds.push({ index: i, time: OUTLIER_START })
+          else if (part[i] === OUTLIER) seeds.push({ index: i, time: options.outlierStart ?? OUTLIER_START })
         }
       }
     }
@@ -974,7 +1236,50 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     }
     const boost = new Float32Array(field.length).fill(1)
     for (let i = 0; i < field.length; i += 1) if (lit[i]! > 0) boost[i] = 0.8 + 0.4 * lit[i]!
-    const arrival = arrivalTimes(grid, dFull, part, { speed: SPEED, delay: DELAY, barred: BARRED, seeds, shell: 2 * step, noiseSeed: nseed, boost })
+    // The mature mesh keeps `seeds` (the whole footing, so its growth record is unchanged). A young stage starts from a
+    // small root in that footing: the keep rises there before the plinth, the deck and the runners spread into a plate.
+    let rootU = 0
+    let rootW = 0
+    let rootN = 0
+    for (const s of seeds) {
+      if (s.time !== 0) continue
+      const x = s.index % dx
+      const z = Math.floor(s.index / (dx * dy))
+      rootU += U0 + x * step
+      rootW += W0 + z * step
+      rootN += 1
+    }
+    if (rootN > 0) {
+      rootU /= rootN
+      rootW /= rootN
+    }
+    const ROOT = 3.2
+    const stageSeeds = seeds.filter((s) => {
+      if (s.time !== 0 || rootN === 0) return true
+      const x = s.index % dx
+      const z = Math.floor(s.index / (dx * dy))
+      return Math.hypot(U0 + x * step - rootU, W0 + z * step - rootW) <= ROOT
+    })
+    const rooted = stageSeeds.some((s) => s.time === 0) ? stageSeeds : seeds
+    const stageBoost = new Float32Array(boost)
+    if (rootN > 0) {
+      for (let z = 0; z < dz; z += 1) {
+        const w = W0 + z * step
+        for (let x = 0; x < dx; x += 1) {
+          const u = U0 + x * step
+          const dist = Math.hypot(u - rootU, w - rootW)
+          const g = groundLocal[z * dx + x]!
+          for (let y = 0; y < dy; y += 1) {
+            const yy = Y0 + y * step
+            const i = fidx(x, y, z)
+            if (part[i] !== KEEP && part[i] !== FOOT) continue
+            if (dist <= ROOT && yy > g + 1.2 && yy < g + 12) stageBoost[i] = Math.min(2.2, stageBoost[i]! * 1.65)
+            else if (dist > ROOT && yy < g + plinth.top + 1.5) stageBoost[i] = stageBoost[i]! * (0.42 + 0.58 * (ROOT / dist))
+          }
+        }
+      }
+    }
+    const arrival = arrivalTimes(grid, dFull, part, { speed: SPEED, delay: DELAY, barred: BARRED, seeds: rooted, shell: 2 * step, noiseSeed: nseed, boost: stageBoost })
     const ranges: Record<string, [number, number]> = {}
     for (let i = 0; i < field.length; i += 1) {
       if (dFull[i]! >= 0) continue
@@ -991,10 +1296,143 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
     const weights = lateWeights(grid, dRef, arrival.time, decay.time, lit, aboveGround, nseed)
     const work = new Float32Array(field.length)
     const timing = { arrivalMs: arrival.ms, decayMs: decay.ms, lastStageMs: 0, lastFieldMs: 0 }
+    /**
+     * The lab's ruin (late.ruin, 0 to 1): what dead tissue's skeleton does as it fails. The great shelf breaks off, its break line moving
+     * back toward the keep; the raking piers fail; the towers lose their tops in a jagged line. `ruinCarve` removes these (before the
+     * anchoring drops whatever it leaves cut off); `ruinAdd` then lays what fell and the mineral that weathered off as rubble on
+     * the ground and a low apron around the footing. All from the organism's own parts and noise, nothing random.
+     */
+    const rn = (a2: number, b2: number, c2: number) => vnoise(a2 + nseed, b2, c2)
+    const ruinCarve = (ruin: number) => {
+      const sT = smoothstep(0.02, 0.5, ruin)
+      const sP = smoothstep(0.05, 0.45, ruin)
+      const sK = smoothstep(0.25, 1, ruin)
+      const sH = smoothstep(0.5, 1, ruin)
+      const uBreak = shelf.tip + 3 - sT * ((shelf.tip - keepFace) + 9)
+      const topCut = Math.max(keepTop - 26 * sK, 9)
+      // The piers fail one after another: the reference pier first, then every other.
+      const failing = [pierFin, ...extraPiers, ...armPiers].filter((_, k) => (k === 0 ? sP > 0.15 : sP > 0.45))
+      const heightLimit = 26 - 19 * sH
+      for (let z = 0; z < dz; z += 1) {
+        const w = W0 + z * step
+        for (let x = 0; x < dx; x += 1) {
+          const u = U0 + x * step
+          for (let y = 0; y < dy; y += 1) {
+            const yy = Y0 + y * step
+            const i = fidx(x, y, z)
+            if (work[i]! <= 0) continue
+            let r = Infinity
+            if (sT > 0 && u > uBreak - 4) {
+              const jag = 3 * (rn(w / 3, yy / 2.5, 1.7) - 0.5)
+              const rU = uBreak + jag - u
+              const rBand = Math.max(Math.abs(w - shelfCwAt(u)) - (shelfHwAt(u) + 6), shelfBottomAt(u) - 5 - yy, yy - (shelfTopAt(u) + 4), hasOutlier ? u - (outlier.cu - outlier.hu - 2) : -Infinity)
+              r = Math.min(r, Math.max(rU, rBand))
+            }
+            for (const F of failing) r = Math.min(r, fin(u, yy, w, F) - 2.2)
+            if (sT > 0) {
+              // The other cantilevers break back from their tips.
+              for (const R of arms) {
+                const pu = u - R.o[0]
+                const pw = w - R.o[1]
+                const s2 = pu * R.dir[0] + pw * R.dir[1]
+                const q2 = -pu * R.dir[1] + pw * R.dir[0]
+                const cutAt = R.len * (1 - 0.95 * sT) + 3 * (rn(w / 3, yy / 2.5, 6.1) - 0.5)
+                r = Math.min(r, Math.max(cutAt - s2, Math.abs(q2) - (Math.max(R.hw[0], R.hw[1]) + 5), yy - (R.top + 4), (R.top - R.thick[0]) - 5 - yy))
+              }
+            }
+            if (sH > 0) r = Math.min(r, heightLimit + 3 * (rn(u / 4, yy / 4, w / 4) - 0.5) - yy)
+            if (sK > 0 && u < keepFace + 2) {
+              const jag = 4 * (rn(u / 3.5, yy / 5, w / 3.5) - 0.5)
+              r = Math.min(r, Math.max(topCut + jag - yy, u - (keepFace + 2)))
+            }
+            if (r < work[i]!) work[i] = r
+          }
+        }
+      }
+    }
+    /**
+     * What the dead and the weathering leave: the fallen pieces as rubble lying on the ground, and a mineral deposit around the footing.
+     * The deposit is not a disc: its edge wanders (noise on the angle), it runs farther downhill (the way the ground carries it), it is
+     * patchy and thins to nothing at the edge, and it lies on the ground wherever the ground goes. It starts as a faint collar as the
+     * skeleton weathers (`recede`, metres) and thickens as the structure fails (`ruin`).
+     */
+    const ruinAdd = (ruin: number, recede: number) => {
+      const sT = smoothstep(0.02, 0.5, ruin)
+      const uBreak = shelf.tip + 3 - sT * ((shelf.tip - keepFace) + 9)
+      const blocks: { u: number; w: number; r: number; asp: number; rot: number; flat: number }[] = []
+      const nB = ruin > 0 ? Math.round(3 + 10 * ruin) : 0
+      for (let k = 0; k < nB; k += 1) {
+        const q = rn(k * 7.3, 2.1, 5.5)
+        const fell = k % 2 === 0 && sT > 0
+        // The shelf's fallen part lies below and beyond its break; the towers' fallen tops lie at their foot, to the sides.
+        const bu = fell ? lerp3n(uBreak + 2, shelf.tip, q) : masses[0]!.cu + (rn(k, 4.4, 1) - 0.5) * 30
+        const bw = fell ? shelfCwAt(bu) + (rn(k, 9.1, 2) - 0.5) * 16 : masses[0]!.cw + cs * (10 + 14 * rn(k, 6.6, 3)) * (k % 4 === 1 ? 1 : -1)
+        // Fallen pieces are not round: long or squat, turned every way, and boxy (a superellipsoid), sunk a little into the ground.
+        blocks.push({ u: bu, w: bw, r: 1.8 + 3.8 * rn(k * 3.1, 8.8, 4) * (0.5 + 0.5 * ruin), asp: 1 + 0.9 * rn(k * 1.7, 3.3, 9), rot: 6.28 * rn(k * 2.3, 5.5, 11), flat: 0.55 + 0.45 * rn(k * 4.1, 1.1, 13) })
+      }
+      const amount = Math.max(smoothstep(0.4, 0.95, ruin), 0.3 * clamp01(recede / 6))
+      // Downhill, from the ground around the footing.
+      const gu = groundAt(plinth.cu + 6, plinth.cw) - groundAt(plinth.cu - 6, plinth.cw)
+      const gw = groundAt(plinth.cu, plinth.cw + 6) - groundAt(plinth.cu, plinth.cw - 6)
+      const downAngle = Math.atan2(-gw, -gu)
+      const downBias = clamp01(Math.hypot(gu, gw) / 10)
+      for (let z = 0; z < dz; z += 1) {
+        const w = W0 + z * step
+        for (let x = 0; x < dx; x += 1) {
+          const u = U0 + x * step
+          const g = groundLocal[z * dx + x]!
+          let crust = 0
+          if (amount > 0) {
+            const du = u - plinth.cu
+            const dw = w - plinth.cw
+            const ang = Math.atan2(dw, du)
+            const wander = 0.72 + 0.62 * rn(Math.cos(ang) * 1.7 + 7, Math.sin(ang) * 1.7, 3.3) + 0.5 * downBias * Math.max(0, Math.cos(ang - downAngle))
+            const q = Math.hypot(du / (plinth.hu + 4 + 6 * amount), dw / (plinth.hw + 4 + 6 * amount)) / wander
+            const patchy = 0.3 + 1.2 * rn(u / 4.5, w / 4.5, 8.2)
+            // A deposit has a thickness or it is not there: thin crusts thin to nothing at a rounded lip rather than breaking into specks.
+            const c0 = (1.1 + 1.6 * amount) * amount * (1 - smoothstep(0.35, 1, q)) * patchy
+            crust = c0 * smoothstep(0.25, 0.7, c0)
+          }
+          // Only the pieces whose footprint reaches this column (a piece is at most 1.7 x its radius x its length factor wide).
+          const near = blocks.filter((B) => Math.hypot(u - B.u, w - B.w) < B.r * 1.3 * B.asp * 1.7)
+          for (let y = 0; y < dy; y += 1) {
+            const yy = Y0 + y * step
+            const i = fidx(x, y, z)
+            let v = work[i]!
+            if (crust > 0.05 && yy > g - 1.2) v = Math.max(v, g + crust - yy)
+            for (const B of near) {
+              const ex = u - B.u
+              const ez = w - B.w
+              const du = (ex * Math.cos(B.rot) + ez * Math.sin(B.rot)) / (B.r * 1.3 * B.asp)
+              const dw = (-ex * Math.sin(B.rot) + ez * Math.cos(B.rot)) / (B.r / Math.sqrt(B.asp))
+              const dyy = (yy - (groundAt(B.u, B.w) + B.r * 0.3)) / (B.r * B.flat)
+              const e2 = Math.pow(Math.abs(du) ** 2.6 + Math.abs(dw) ** 2.6 + Math.abs(dyy) ** 2.6, 1 / 2.6)
+              if (e2 > 1.6) continue
+              const d = (e2 - 1) * B.r * 0.8 + 1.8 * (rn(u / 2.4, yy / 2.4, w / 2.4) - 0.5)
+              v = Math.max(v, -d)
+            }
+            work[i] = v
+          }
+        }
+      }
+    }
+    const groundAt = (u: number, w: number) => groundLocal[Math.min(dz - 1, Math.max(0, Math.round((w - W0) / step))) * dx + Math.min(dx - 1, Math.max(0, Math.round((u - U0) / step)))]!
+    const lerp3n = (a2: number, b2: number, t2: number) => a2 + (b2 - a2) * t2
     const at = (age: number, late?: LateState) => {
       const t0 = performance.now()
       fieldAt(age, dRef, dFull, arrival, decay.time, work, late && (late.grow > 0 || late.recede > 0 || late.regen > 0) ? { state: late, weights } : undefined)
+      // The root stays solid and on the ground while tissue is young. Youth thins a surface, and a thin plate can lose
+      // its contact; anything then cut off the footing is dropped. The mature field is not rewritten here.
+      if (age < 1 && !late?.ruin) {
+        for (const s of rooted) {
+          if (s.time !== 0 || dRef[s.index]! >= 0) continue
+          if (work[s.index]! < 0.45) work[s.index] = 0.45
+        }
+      }
+      if (late?.ruin) ruinCarve(late.ruin)
       if (anchored) anchorField(work, null, columnsOf, groundLocal, deepLocal)
+      // The lab's and the refined world's lifecycle set `ruin` (even 0): weathering then leaves its collar. The classic one never does.
+      if (late && late.ruin !== undefined) ruinAdd(late.ruin, late.recede)
       const t1 = performance.now()
       const g = buildGeometry(work, { arrival: arrival.time, decay: decay.time, late: late && (late.grow > 0 || late.recede > 0) ? { state: late, weights, age } : undefined }).geometry
       timing.lastFieldMs = Math.round(t1 - t0)
@@ -1016,6 +1454,83 @@ export function growOverhang3(world: World, seed: number, options: Overhang3Opti
       return grownMesh
     }
     return { at, timing, arrival: ranges, decaySamples: decay.samples, grown }
+  }
+}
+
+/** Footings. A shelf, a deck, a curtain or a cavity is not one: those are left clear of the ground on purpose. */
+function meetsGround(kind: number) {
+  return kind === KEEP || kind === FOOT || kind === OUTLIER || kind === SPINE || kind === RUNNER
+}
+function elevatedKind(kind: number) {
+  return kind === SHELF || kind === DECK || kind === CURTAIN || kind === MEZZANINE || kind === LOWER
+}
+
+/**
+ * Grows footings down to the ground under them. `field` is inside-positive; `full`, when present, is the lifecycle field
+ * (positive outside). A short batter beside a steep footing lets the joint follow the slope. A column that already holds
+ * a shelf or a cavity is not filled, so an undercroft stays open.
+ */
+function seatOnGround(
+  field: Float32Array,
+  full: Float32Array | null,
+  owner: Uint8Array,
+  part: Uint8Array,
+  grid: { dx: number; dy: number; dz: number; Y0: number; step: number },
+  ground: Float32Array,
+  deep: Uint8Array,
+  flare = false,
+) {
+  const { dx, dy, dz, Y0, step } = grid
+  const fidx = (x: number, y: number, z: number) => (z * dy + y) * dx + x
+  const fill = (x: number, y: number, z: number, who: number, kind: number, inside: number) => {
+    const i = fidx(x, y, z)
+    if (field[i]! > 0) return
+    field[i] = inside
+    owner[i] = who
+    part[i] = kind
+    if (full) full[i] = -inside
+  }
+  for (let z = 0; z < dz; z += 1) {
+    for (let x = 0; x < dx; x += 1) {
+      if (deep[z * dx + x]) continue
+      const g = ground[z * dx + x]!
+      const first = Math.max(0, Math.ceil((g - 1.2 - Y0) / step))
+      let low = -1
+      for (let y = first; y < dy; y += 1) {
+        if (field[fidx(x, y, z)]! > 0) {
+          low = y
+          break
+        }
+      }
+      if (low <= first) continue
+      const kind = part[fidx(x, low, z)]!
+      if (!meetsGround(kind)) continue
+      const gap = Y0 + low * step - g
+      if (gap > FOOTING_GAP || gap < 0.4) continue
+      const who = owner[fidx(x, low, z)]!
+      for (let y = first; y < low; y += 1) fill(x, y, z, who, kind, 0.55)
+      // A batter only where the drop is real. A gentle site, including the flat reference, is not widened.
+      if (gap < (flare ? 1.2 : 3)) continue
+      const yTop = first + Math.max(1, Math.ceil((low - first) * (flare ? 0.7 : 0.45)))
+      // A flare grows the footing out in two rings, the outer lower and thinner: it spreads into the ground like a root buttress, not a wall.
+      const ring: [number, number, number][] = flare && kind !== SPINE
+        ? [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1], [-1, 1, 1], [1, -1, 1], [-1, -1, 1], [2, 0, 0.55], [-2, 0, 0.55], [0, 2, 0.55], [0, -2, 0.55]]
+        : [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1]]
+      for (const [ox, oz, share] of ring) {
+        const nx = x + ox
+        const nz = z + oz
+        if (nx < 0 || nz < 0 || nx >= dx || nz >= dz || deep[nz * dx + nx]) continue
+        let blocked = false
+        for (let y = 0; y < dy && !blocked; y += 1) {
+          const ni = fidx(nx, y, nz)
+          if (field[ni]! > 0 && elevatedKind(part[ni]!)) blocked = true
+        }
+        if (blocked) continue
+        const nFirst = Math.max(0, Math.ceil((ground[nz * dx + nx]! - 1.2 - Y0) / step))
+        const top = flare ? nFirst + Math.max(1, Math.round((yTop - nFirst) * share)) : yTop
+        for (let y = nFirst; y < top; y += 1) fill(nx, y, nz, who, kind, 0.4)
+      }
+    }
   }
 }
 

@@ -1,0 +1,103 @@
+/* Habitat Study: rules specific to this workspace. The shared instrument layer lives in ui/system.css. */
+.hstudy .choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.hstudy .choice {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-label);
+  text-align: left;
+  cursor: pointer;
+}
+
+.hstudy .choice:hover {
+  color: var(--ui-title);
+}
+
+.hstudy .choice[aria-pressed='true'] {
+  border-color: var(--ui-title);
+  color: var(--ui-title);
+}
+
+.hstudy .note {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: var(--text-label);
+  line-height: 1.45;
+}
+
+.hstudy .note b {
+  color: var(--ui-title);
+  font-weight: 500;
+}
+
+.hstudy .panel-section-body > div[data-group] {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hstudy .view-strip {
+  gap: 12px;
+}
+
+.hstudy .view-strip .readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+
+/* Style C — Composition study: the plate's guides and the contact sheet's labels, over the canvas. */
+.hstudy .compose-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hstudy .compose-plate {
+  position: absolute;
+  outline: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.hstudy .compose-third {
+  position: absolute;
+  background: rgba(214, 68, 48, 0.45);
+}
+
+.hstudy .compose-third.v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.hstudy .compose-third.h {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.hstudy .compose-cell-label {
+  position: absolute;
+  padding: 1px 5px;
+  background: rgba(28, 29, 32, 0.75);
+  color: #e8e8e8;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.hstudy.is-squint .world-canvas canvas {
+  filter: blur(6px);
+}
+
+.hstudy.is-clean .region-left {
+  visibility: hidden;
+}

@@ -68,6 +68,10 @@ export function rng(seed: number) {
 
 /** Where the colony stands for a seed. The default seed's is chosen by hand (sunlit, 5° ground, 90 m from the east lake); others are searched for. */
 const SITES: Record<number, [number, number]> = { 909387746: [740, -220] }
+/** Sets the site a seed stands on, so a caller that has chosen one (the Architecture Lab's stage) does not have `chooseSite` scan for it. */
+export function pinSite(seed: number, site: [number, number]) {
+  SITES[seed] = site
+}
 
 export function chooseSite(world: World, seed: number): [number, number] {
   const fixed = SITES[seed]

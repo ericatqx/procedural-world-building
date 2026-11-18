@@ -67,12 +67,16 @@ const MAX_MINOR = 2
 const STEP_MARGIN = 10
 /** Half-width in meters over which the wall is blended; the terrain mesh's own spacing decides how sharp it reads. */
 const WALL_BLEND = 3
-const MAX_RIM_FALLS = 2
+// Round 07: every river that runs out at the rim pours over it (small rivers as thin falls). Ending the smaller ones in a narrowing thread
+// left a ribbon running up to the island's edge and stopping there, square, against the void.
+const MAX_RIM_FALLS = Infinity
 /** A rim fall pours down part of the cliff face at its lip: about half of it, between these bounds, in meters. */
-const RIM_FALL = { min: 90, max: 200 }
+// Round 08C: three quarters of the cut face (it was half, and the falls stopped in mid-air partway down the cliff), dissolving into spray over
+// their lower half (WaterLayer.tsx › FALL_ALBEDO) rather than ending.
+const RIM_FALL = { min: 120, max: 440 }
 function rimFallHeight(lip: RimFall) {
   const face = LANDFORM_02.cliffDepth(Math.atan2(lip.z, lip.x)) * ISLAND_METERS_PER_UNIT
-  return Math.max(RIM_FALL.min, Math.min(RIM_FALL.max, face * 0.5))
+  return Math.max(RIM_FALL.min, Math.min(RIM_FALL.max, face * 0.75))
 }
 const BUCKET = 48
 
@@ -246,11 +250,59 @@ export function createRivers(water: WaterSystem): RiverSystem {
     if (d >= 0 && accepted[d]) levelOf[d] = Math.min(levelOf[d]!, levelOf[c]!)
   }
 
+  const cellXZ = (cell: number): [number, number] => [at(cell % n), at((cell - (cell % n)) / n)]
+  /** The lake cell that drains into `cell`, or a neighbouring lake cell when the drain is not the neighbour step. */
+  const lakeSource = (cell: number) => {
+    const ci = cell % n
+    const cj = (cell - ci) / n
+    let near = -1
+    for (const [dx, dz] of NEIGHBORS) {
+      const ni = ci + dx
+      const nj = cj + dz
+      if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue
+      const other = nj * n + ni
+      if (!lake[other]) continue
+      if (down[other] === cell) return other
+      if (near < 0) near = other
+    }
+    return near
+  }
+  /** From a point on the lake, step further along the flow while the point stays on the water. */
+  const furtherIn = (x: number, z: number, dx: number, dz: number) => {
+    let bx = x
+    let bz = z
+    for (let s = 2; s <= 12; s += 2) {
+      const nx = x + dx * s
+      const nz = z + dz * s
+      if (water.surfaceAt(nx, nz) === null) break
+      bx = nx
+      bz = nz
+    }
+    return { x: bx, z: bz }
+  }
+
   const rivers: River[] = []
   const toRim: River[] = []
   for (const reach of reaches) {
     const control: RiverNode[] = []
     const cells = reach.cells
+    const fedByLake = fed[cells[0]!]! < Number.POSITIVE_INFINITY
+    let mouth: number | null = null
+    let sourceLevel: number | null = null
+    if (fedByLake) {
+      const src = lakeSource(cells[0]!)
+      if (src >= 0) {
+        const [sx, sz] = cellXZ(src)
+        const [hx, hz] = cellXZ(cells[0]!)
+        const dx = sx - hx
+        const dz = sz - hz
+        const len = Math.hypot(dx, dz) || 1
+        const into = furtherIn(sx, sz, dx / len, dz / len)
+        const hw = halfAt[cells[0]!] || HALF_WIDTH.min
+        sourceLevel = lakeLevel[src]!
+        control.push({ x: into.x, z: into.z, level: sourceLevel, halfWidth: hw, depth: depthFor(hw) })
+      }
+    }
     for (let k = 0; k < cells.length; k += 1) {
       const cell = cells[k]!
       const x = at(cell % n)
@@ -259,10 +311,14 @@ export function createRivers(water: WaterSystem): RiverSystem {
         const hw = halfAt[cell]!
         control.push({ x, z, level: levelOf[cell]!, halfWidth: hw, depth: depthFor(hw) })
       } else if (lake[cell] && control.length > 0) {
-        // Ends on the shore: the lake takes the surface from here.
+        // The mouth sits inside the lake, not halfway back on the dry cell, so the ribbon meets the lake mesh.
         const last = control[control.length - 1]!
-        const lakeSurface = lakeLevel[cell]!
-        control.push({ x: (x + last.x) * 0.5, z: (z + last.z) * 0.5, level: Math.min(last.level, lakeSurface), halfWidth: last.halfWidth, depth: last.depth })
+        const dx = x - last.x
+        const dz = z - last.z
+        const len = Math.hypot(dx, dz) || 1
+        const into = furtherIn(x, z, dx / len, dz / len)
+        mouth = lakeLevel[cell]!
+        control.push({ x: into.x, z: into.z, level: mouth, halfWidth: Math.max(last.halfWidth, 5), depth: Math.max(last.depth, 1.1) })
       } else if (control.length > 0) {
         const last = control[control.length - 1]!
         control.push({ x, z, level: last.level, halfWidth: last.halfWidth * (reach.end === 'sink' ? 1 : 0.6), depth: last.depth * (reach.end === 'sink' ? 1 : 0.6) })
@@ -271,15 +327,35 @@ export function createRivers(water: WaterSystem): RiverSystem {
     if (control.length < 3) continue
     // Sources start narrow and open out; an outlet leaves its lake at the width the catchment gives it, with no pinch.
     const lead = Math.min(8, control.length)
-    const fedByLake = fed[cells[0]!]! < Number.POSITIVE_INFINITY
     for (let k = 0; k < lead && !fedByLake; k += 1) {
       const node = control[k]!
       const t = 0.3 + 0.7 * smoothstep(0, lead, k)
       node.halfWidth *= t
       node.depth *= t
     }
-    const nodes = seat(subdivide(control))
+    let nodes = seat(subdivide(control))
+    // A river whose surface falls well below the lake it was traced into (seated against a valley on one side of a hillside course) does not reach that
+    // lake at its level: lifting its last stretch to the lake drew an uphill ramp of ribbon and carved a trench through the lake's rim, with the lake's edge
+    // hanging over it. It ends instead in the narrowing thread of any stream that ends inland.
+    let basin = false
+    if (mouth !== null && mouth - nodes[nodes.length - 1]!.level > 2) {
+      // Its surface only falls (seat), and here it fell more than two metres below the lake while still on its way: the bank it was seated against is a valley
+      // to one side, not the lake's. It ends where it is still at about the lake's level, before the drop.
+      let cut = nodes.length - 1
+      while (cut > 4 && nodes[cut]!.level < mouth - 2) cut -= 1
+      // A short dip is eased back up to the lake below (liftEnd's eight nodes); only a long one is cut.
+      if (cut > 4 && nodes.length - 1 - cut > 8) {
+        nodes = nodes.slice(0, cut + 1)
+        mouth = null
+        basin = true
+      }
+    }
+    // seat keeps the surface monotone, which leaves a river short of a higher lake. Ease only the mouth and the
+    // outlet back to the lake's own level so the ribbon runs under the lake mesh. The rest of the bed is unchanged.
+    if (mouth !== null) liftEnd(nodes, mouth, true)
+    if (sourceLevel !== null) liftEnd(nodes, sourceLevel, false)
     smoothWidth(nodes)
+    if (basin) taperEnd(nodes)
     rivers.push({ nodes, flow: reach.flow, rim: null, plunge: null })
     if (reach.end === 'sink') toRim.push(rivers[rivers.length - 1]!)
   }
@@ -320,6 +396,19 @@ function subdivide(control: RiverNode[]): RiverNode[] {
   }
   out.push(control[last]!)
   return out
+}
+
+/** Raise the first or last few nodes toward a lake surface. `fromEnd` is the downstream mouth. */
+function liftEnd(nodes: RiverNode[], level: number, fromEnd: boolean) {
+  const count = nodes.length
+  const lift = Math.min(count, 8)
+  for (let i = 0; i < lift; i += 1) {
+    const k = fromEnd ? count - 1 - i : i
+    const t = 1 - i / Math.max(1, lift - 1)
+    const e = t * t * (3 - 2 * t)
+    const node = nodes[k]!
+    node.level = node.level * (1 - e) + level * e
+  }
 }
 
 /** Between the control nodes the curve can stray from the thalweg: lower the surface wherever a bank would otherwise stand below it. */
@@ -490,13 +579,15 @@ function buildCarve(rivers: River[]): TerrainCarve {
   const cols = Math.ceil(size / BUCKET)
   const buckets: number[][] = new Array(cols * cols)
   const segments: number[] = []
+  /** Which river each segment belongs to (segment id → river index). */
+  const segRiver: number[] = []
   const reachOf = (v: number) => Math.min(cols - 1, Math.max(0, Math.floor((v + size * 0.5) / BUCKET)))
   /** A step's wall: across the flow at its lip, wherever the channel runs there; ground on either side is cut to that side's own level. */
   type Wall = { x: number; z: number; dx: number; dz: number; r2: number; above: number; below: number; run: number; hw: number; height: number; from: number }
   const walls: Wall[] = []
   /** Segment id → the wall whose plateau it belongs to, and the segment's own node index. */
   const wallOf = new Map<number, { wall: Wall; k: number }>()
-  for (const river of rivers) {
+  rivers.forEach((river, riverIndex) => {
     let wall: Wall | null = null
     const plunge = river.plunge
     if (plunge) {
@@ -512,6 +603,7 @@ function buildCarve(rivers: River[]): TerrainCarve {
       const b = river.nodes[k + 1]!
       const id = segments.length / 8
       segments.push(a.x, a.z, b.x, b.z, a.level, b.level, a.halfWidth, b.halfWidth)
+      segRiver.push(riverIndex)
       if (wall && plunge && k >= plunge.from - 14 && k < plunge.end) wallOf.set(id, { wall, k })
       const radius = Math.max(a.halfWidth, b.halfWidth) + BANK_BLEND.start + BANK_BLEND.length
       const i0 = reachOf(Math.min(a.x, b.x) - radius)
@@ -525,8 +617,9 @@ function buildCarve(rivers: River[]): TerrainCarve {
         }
       }
     }
-  }
+  })
   type Pick = { dist: number; width: number; level: number; t: number; reach: number; member: { wall: Wall; k: number } }
+  const othersScratch = new Map<number, { near: number; d: number; hw: number; level: number }>()
   const cut = (x: number, z: number, height: number) => {
     const list = buckets[reachOf(z) * cols + reachOf(x)]
     if (!list) return height
@@ -540,6 +633,14 @@ function buildCarve(rivers: River[]): TerrainCarve {
     // Within a step, the nearest reach above and the nearest below, by plain distance to the channel's line.
     let up: Pick | null = null
     let down: Pick | null = null
+    // Round 05/06: the nearest reach of EVERY river here, not only of the nearest one. Where a tributary joins, the wider main channel was the nearest
+    // reach over the tributary's last metres, so only the main's bank was cut there and it rose over the tributary's water: the tributary stopped in a
+    // square end short of the main channel. Within one river only its nearest reach counts (a bend must not cut its own upstream bank); across rivers
+    // the cuts are united (the lower ground wins), so the channels open into one another.
+    // (One map, emptied for each point rather than made anew: the same entries in the same order, without the allocation.)
+    const others = othersScratch
+    others.clear()
+    let ownerRiver = -1
     for (const id of list) {
       const o = id * 8
       const ax = segments[o]!
@@ -552,6 +653,11 @@ function buildCarve(rivers: River[]): TerrainCarve {
       const width = segments[o + 6]! + (segments[o + 7]! - segments[o + 6]!) * t
       const at = segments[o + 4]! + (segments[o + 5]! - segments[o + 4]!) * t
       const member = wallOf.get(id)
+      const r = segRiver[id]!
+      if (!member) {
+        const o2 = others.get(r)
+        if (!o2 || dist - width < o2.near) others.set(r, { near: dist - width, d: dist, hw: width, level: at })
+      }
       if (member) {
         const pick: Pick = { dist, width, level: at, t, reach: Math.sqrt(len2), member }
         if (member.k < member.wall.from) {
@@ -563,6 +669,7 @@ function buildCarve(rivers: River[]): TerrainCarve {
       d = dist
       hw = width
       level = at
+      ownerRiver = r
       step = member
       if (member) along = (member.k + t - member.wall.from) * Math.sqrt(len2)
     }
@@ -578,14 +685,24 @@ function buildCarve(rivers: River[]): TerrainCarve {
       near = d - hw
     }
     if (near > BANK_BLEND.start + BANK_BLEND.length) return height
-    const groundAt = (surface: number) => {
-      const trough = d <= hw ? surface - depthFor(hw) * (1 - (d / hw) * (d / hw)) : surface + (d - hw) * BANK_SLOPE
+    const groundFor = (surface: number, dd: number, w: number) => {
+      const trough = dd <= w ? surface - depthFor(w) * (1 - (dd / w) * (dd / w)) : surface + (dd - w) * BANK_SLOPE
       const lower = height - trough
       if (lower <= 0) return height
-      const weight = 1 - smoothstep(hw + BANK_BLEND.start, hw + BANK_BLEND.start + BANK_BLEND.length, d)
+      const weight = 1 - smoothstep(w + BANK_BLEND.start, w + BANK_BLEND.start + BANK_BLEND.length, dd)
       return height - lower * weight
     }
-    if (!step) return groundAt(level)
+    const groundAt = (surface: number) => groundFor(surface, d, hw)
+    // The other rivers' cuts here (each by its own nearest reach), united with the owner's.
+    const union = (ground: number) => {
+      let g = ground
+      for (const [r, o] of others) {
+        if (r === ownerRiver || o.near > BANK_BLEND.start + BANK_BLEND.length) continue
+        g = Math.min(g, groundFor(o.level, o.d, o.hw))
+      }
+      return g
+    }
+    if (!step) return union(groundAt(level))
     const { above, below } = step.wall
     if (along <= -WALL_BLEND) return groundAt(above)
     if (along >= WALL_BLEND) return groundAt(below)
@@ -593,7 +710,31 @@ function buildCarve(rivers: River[]): TerrainCarve {
     const upper = groundAt(above)
     return upper + (groundAt(below) - upper) * smoothstep(-WALL_BLEND, WALL_BLEND, along)
   }
-  return (x, z, height) => {
+  // Round 07: where the nearest centre line runs, for the terrain mesh (terrainMesh.ts), which lowers a lattice vertex to the channel's bed when the
+  // channel passes through the vertex's own cell: a channel narrower than the lattice is then still in the drawn ground.
+  const channel = (x: number, z: number, reach: number) => {
+    const list = buckets[reachOf(z) * cols + reachOf(x)]
+    if (!list) return null
+    let best = reach
+    let hit: { x: number; z: number; halfWidth: number } | null = null
+    for (const id of list) {
+      const o = id * 8
+      const ax = segments[o]!
+      const az = segments[o + 1]!
+      const abx = segments[o + 2]! - ax
+      const abz = segments[o + 3]! - az
+      const len2 = abx * abx + abz * abz || 1
+      const t = Math.max(0, Math.min(1, ((x - ax) * abx + (z - az) * abz) / len2))
+      const px = ax + abx * t
+      const pz = az + abz * t
+      const dist = Math.hypot(x - px, z - pz)
+      if (dist >= best) continue
+      best = dist
+      hit = { x: px, z: pz, halfWidth: segments[o + 6]! + (segments[o + 7]! - segments[o + 6]!) * t }
+    }
+    return hit
+  }
+  const carveFn = (x: number, z: number, height: number) => {
     let ground = cut(x, z, height)
     for (const wall of walls) {
       const ox = x - wall.x
@@ -608,6 +749,7 @@ function buildCarve(rivers: River[]): TerrainCarve {
     }
     return ground
   }
+  return Object.assign(carveFn, { channel })
 }
 
 /** Where the water meets the bank on one side of a node, found on the carved ground itself. */
@@ -639,7 +781,7 @@ const smooth = (values: number[], passes: number) => {
 }
 
 /** Each node's tangent and its smoothed distances to the left and right banks, found on the carved ground itself. */
-function riverEdges(nodes: RiverNode[]) {
+export function riverEdges(nodes: RiverNode[]) {
   const left: number[] = []
   const right: number[] = []
   const tangent: [number, number][] = []
@@ -662,17 +804,17 @@ function riverEdges(nodes: RiverNode[]) {
 
 /**
  * Lateral columns: a share of the way to the shore on that side, how far past the shore
- * (meters) and how far dipped under the bank. The outer edge runs past the shore, below it,
+ * (meters: wide enough that a raised surface, in flood or by the distance lift, still meets the bank inside the polygon) and how far dipped under the bank. The outer edge runs past the shore, below it,
  * so the ground, not the polygon, cuts the shoreline.
  */
 const COLUMNS = [
-  { share: -1, past: 1.1, dip: 0.45, depth: 0 },
+  { share: -1, past: 3.2, dip: 1.3, depth: 0 },
   { share: -1, past: 0, dip: 0, depth: 0 },
   { share: -0.5, past: 0, dip: 0, depth: 0.68 },
   { share: 0, past: 0, dip: 0, depth: 1 },
   { share: 0.5, past: 0, dip: 0, depth: 0.68 },
   { share: 1, past: 0, dip: 0, depth: 0 },
-  { share: 1, past: 1.1, dip: 0.45, depth: 0 },
+  { share: 1, past: 3.2, dip: 1.3, depth: 0 },
 ] as const
 /** Rivers are shallow, but read in the lakes' tones: their shading depth is a few times the channel's. */
 const SHADE_DEPTH = 2.6
@@ -685,15 +827,36 @@ const FALL_COLUMNS = 19
  * middle and nothing at the shore (rim falls are `buildFallGeometry`). Attributes: `aDepth` (shading), `aFall` (0 river, 1 falling
  * water), `aAlong` (meters along the flow or down the fall), `aAcross` (−1 to 1).
  */
-export function buildRiverGeometry(system: RiverSystem): BufferGeometry {
+export function buildRiverGeometry(system: RiverSystem, water?: WaterSystem): BufferGeometry {
   const positions: number[] = []
+  const calms: number[] = []
   const normals: number[] = []
   const depths: number[] = []
   const falls: number[] = []
   const alongs: number[] = []
   const acrosses: number[] = []
   const indices: number[] = []
-  const vertex = (x: number, y: number, z: number, nx: number, ny: number, nz: number, depth: number, fall: number, along: number, across: number) => {
+  // MOUTHS. Where a ribbon runs out over a lake (or leaves one), it becomes the lake: over the lake's water it lies exactly on the lake's surface, takes the lake's
+  // depth (its channel fading into the lake bed over the first few metres of water) and its calm (`aCalm` 1: no streaks, the lake's swell, no distance lift), a
+  // hair above it, so the two are one surface with no seam, no flicker and no square end. On the land side the
+  // calm eases in over the last stretch of the river, so the current slows into the lake rather than stopping at a line.
+  const lakeAt = (x: number, z: number) => (water ? water.depthAt(x, z) : 0)
+  const vertex = (x: number, y: number, z: number, nx: number, ny: number, nz: number, depth: number, fall: number, along: number, across: number, calm = 0, level: number | null = null) => {
+    if (water && fall < 0.05 && level !== null) {
+      const lakeDepth = lakeAt(x, z)
+      const surface = lakeDepth > 0 ? water.surfaceAt(x, z) : null
+      // Only water the river actually meets at its own level (its lake); not a pool it passes over at another height, nor the skirt that dips under the banks.
+      if (surface !== null && Math.abs(surface - level) < 0.6) {
+        // A few centimetres over the lake (invisible, as the two are drawn alike here), so it is always the one drawn: the logarithmic depth buffer rules
+        // out a polygon offset, and coplanar with the lake the two would flicker.
+        y = surface + 0.04
+        // Round 08A: the lake's own depth, wholly (it used to keep the river's profile where the lake is shallow, so the ribbon's square mouth showed
+        // on the lake as pale and dark blocks once the water's colour followed depth more closely). On the lake the two surfaces now shade alike.
+        depth = lakeDepth
+        calm = 1
+      }
+    }
+    calms.push(calm)
     positions.push(x, y, z)
     normals.push(nx, ny, nz)
     depths.push(depth)
@@ -716,21 +879,128 @@ export function buildRiverGeometry(system: RiverSystem): BufferGeometry {
     const nodes = river.nodes
     const { left, right, tangent } = riverEdges(nodes)
     const base = positions.length / 3
-    let along = 0
-    const alongAt: number[] = []
+    // SAMPLES. The ribbon is laid on samples of the river's course, not on its raw nodes (a few metres to tens of metres apart, a polyline): between each pair the course is a
+    // smooth curve (Catmull-Rom, three samples a segment), so bends are round and the ribbon's edges are not angular. A river with a plunge keeps its nodes (the plunge's
+    // rows are indexed by node).
+    type Sample = { x: number; z: number; level: number; depth: number; fall: number; left: number; right: number; tx: number; tz: number }
+    const S = river.plunge ? 1 : 3
+    const samples: Sample[] = []
+    const cr = (p0: number, p1: number, p2: number, p3: number, t: number) => 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t)
     for (let k = 0; k < nodes.length; k += 1) {
-      const node = nodes[k]!
-      if (k > 0) along += Math.hypot(node.x - nodes[k - 1]!.x, node.z - nodes[k - 1]!.z)
-      alongAt.push(along)
-      const [tx, tz] = tangent[k]!
-      const fall = node.fall ?? 0
-      for (const column of COLUMNS) {
-        const side = column.share < 0 ? left[k]! : right[k]!
-        const lateral = column.share * (side + column.past)
-        vertex(node.x - tz * lateral, node.level - column.dip, node.z + tx * lateral, 0, 1, 0, node.depth * SHADE_DEPTH * column.depth, fall, along, column.share)
+      const a1 = nodes[k]!
+      const b1 = nodes[Math.min(nodes.length - 1, k + 1)]!
+      const z0 = nodes[Math.max(0, k - 1)]!
+      const z3 = nodes[Math.min(nodes.length - 1, k + 2)]!
+      const steps = k === nodes.length - 1 ? 1 : S
+      for (let i = 0; i < steps; i += 1) {
+        const t = i / S
+        const lerp = (u: number, v: number) => u + (v - u) * t
+        const next = Math.min(nodes.length - 1, k + 1)
+        samples.push({
+          x: S === 1 ? a1.x : cr(z0.x, a1.x, b1.x, z3.x, t),
+          z: S === 1 ? a1.z : cr(z0.z, a1.z, b1.z, z3.z, t),
+          level: lerp(a1.level, b1.level),
+          depth: lerp(a1.depth, b1.depth),
+          fall: Math.max(a1.fall ?? 0, 0) * (1 - t) + Math.max(b1.fall ?? 0, 0) * t,
+          left: lerp(left[k]!, left[next]!),
+          right: lerp(right[k]!, right[next]!),
+          tx: 0,
+          tz: 0,
+        })
       }
     }
-    strips(base, nodes.length, COLUMNS.length, river.plunge)
+    for (let k = 0; k < samples.length; k += 1) {
+      const p = samples[Math.max(0, k - 1)]!
+      const n = samples[Math.min(samples.length - 1, k + 1)]!
+      const l = Math.hypot(n.x - p.x, n.z - p.z) || 1
+      samples[k]!.tx = (n.x - p.x) / l
+      samples[k]!.tz = (n.z - p.z) / l
+    }
+    // BENDS (Round 06): how sharply, and which way, the course turns at each sample (signed, smoothed over a few samples). Water runs deep along a
+    // bend's outer bank and drops sand on its inner bank (a point bar), so the depth across the ribbon leans with the bend: the shallow, sandy edge
+    // is wide on the inside of a bend, narrow on the outside, and even only where the river runs straight.
+    const turn: number[] = samples.map((_, k) => {
+      const p = samples[Math.max(0, k - 2)]!
+      const n = samples[Math.min(samples.length - 1, k + 2)]!
+      const run = Math.hypot(n.x - p.x, n.z - p.z) || 1
+      return (p.tx * n.tz - p.tz * n.tx) / run
+    })
+    const bend = turn.map((_, k) => {
+      let sum = 0
+      let count = 0
+      for (let d = -7; d <= 7; d += 1) {
+        const j = Math.max(0, Math.min(turn.length - 1, k + d))
+        sum += turn[j]! * (1 - Math.abs(d) / 8)
+        count += 1 - Math.abs(d) / 8
+      }
+      const v = sum / count
+      return Math.sign(v) * smoothstep(0.004, 0.03, Math.abs(v))
+    })
+    let total = 0
+    for (let k = 1; k < samples.length; k += 1) total += Math.hypot(samples[k]!.x - samples[k - 1]!.x, samples[k]!.z - samples[k - 1]!.z)
+    const endsInLake = !river.rim && lakeAt(samples[samples.length - 1]!.x, samples[samples.length - 1]!.z) > 0
+    const startsInLake = lakeAt(samples[0]!.x, samples[0]!.z) > 0
+    // A stream that JOINS another (Round 06): its course ends on the other's centre line. It must not carry on past it (it crossed the main channel
+    // and stood out beyond its far bank), and its last metres sit a little under the main's surface, so the main's water covers the end and the two
+    // read as one: the tributary widens into the main channel (the mouth, below) and disappears into it.
+    const tail = samples[samples.length - 1]!
+    const joins = !river.rim && !endsInLake && system.rivers.some((other) => other !== river && other.nodes.some((n) => Math.hypot(n.x - tail.x, n.z - tail.z) < n.halfWidth + 2))
+    let along = 0
+    const alongAt: number[] = []
+    for (let k = 0; k < samples.length; k += 1) {
+      const node = samples[k]!
+      if (k > 0) along += Math.hypot(node.x - samples[k - 1]!.x, node.z - samples[k - 1]!.z)
+      alongAt.push(along)
+      const tx = node.tx
+      const tz = node.tz
+      const fall = node.fall
+      // The ends open out a little where the river meets a lake or another stream (to 1.4 times over about 22 m), so the ribbon joins the water as a mouth, not as a
+      // strip laid against it; a river that leaves a lake opens out the same way at its head.
+      const mouth = river.rim ? 1 : 1 + (endsInLake || joins ? 0.4 * (1 - smoothstep(0, 22, total - along)) : 0) + (startsInLake ? 0.3 * (1 - smoothstep(0, 18, along)) : 0)
+      const calm = Math.max(endsInLake ? 1 - smoothstep(0, 30, total - along) : 0, startsInLake ? 1 - smoothstep(0, 24, along) : 0) * 0.85
+      const sink = joins ? 0.12 * (1 - smoothstep(0, Math.max(6, (node.left + node.right) * 0.6), total - along)) : 0
+      // An inland end narrows to a point over its last stretch (its least half-width and its depth with it), so it ends as a thread into the sediment.
+      // A spring (a head that does not leave a lake) opens out from a point the same way.
+      const tip = (!river.rim && !endsInLake && !joins ? smoothstep(0, Math.max(12, (node.left + node.right) * 2), total - along) : 1) * (startsInLake ? 1 : smoothstep(0, 16, along))
+      for (const column of COLUMNS) {
+        // A narrow stream keeps a least half-width (3 m): measured on the carved ground a narrow channel can be a sliver, and a sliver is cut into dashes by the terrain at
+        // its coarser levels of detail instead of reading as one line.
+        const side = Math.max(3 * tip, (column.share < 0 ? node.left : node.right) * (0.15 + 0.85 * tip)) * mouth
+        const lateral = column.share * (side + column.past)
+        const px = node.x - tz * lateral
+        const pz = node.z + tx * lateral
+        // The outer edge runs under the bank: never above the ground it meets, whatever the flood or the distance lifts, so no ribbon edge shows.
+        const py = column.past > 0 ? Math.min(node.level - column.dip, landscapeHeight(px, pz) - 0.15) : node.level - column.dip - sink
+        // The bend's lean: the inner side (share on the side the course turns toward) shallower, the outer deeper, and the outer edge itself a little
+        // deep (a cut bank), so the sandy edge narrows there.
+        const lean = bend[k]! * Math.sign(column.share)
+        const shape = column.share === 0 ? 1 : lean > 0 ? 1 - 0.35 * lean : 1 - 0.3 * lean
+        const edge = Math.abs(column.share) === 1 && column.past === 0 && lean < 0 ? -lean * 0.25 : 0
+        vertex(px, py, pz, 0, 1, 0, node.depth * SHADE_DEPTH * (column.depth * shape + edge) * (0.45 + 0.55 * tip), fall, along, column.share * (column.past > 0 ? 1.1 : 1), calm * (1 - fall), column.past > 0 ? null : node.level)
+      }
+    }
+    // A stream that ends in a lake or joins another carries on a few rows past its last node, a hair under that water's surface, so the lake's own water covers
+    // its end and the two are one colour: it does not stop in a square edge of ribbon.
+    // Round 07: only a lake mouth carries on (under the lake's water). A river that ends inland (cut short of a lake it cannot reach, or in a sink)
+    // used to carry on too, at its last level, into the rising ground beyond: a dangling square end. It now narrows to a point (below).
+    const EXTEND = endsInLake ? 3 : 0
+    {
+      const last = samples[samples.length - 1]!
+      const tx = last.tx
+      const tz = last.tz
+      for (let e = 1; e <= EXTEND; e += 1) {
+        const dist = e * 6
+        for (const column of COLUMNS) {
+          const side = Math.max(3, column.share < 0 ? last.left : last.right) * (river.rim ? 1 : 1.4 + 0.07 * e)
+          const lateral = column.share * (side + column.past)
+          const px = last.x + tx * dist - tz * lateral
+          const pz = last.z + tz * dist + tx * lateral
+          const py = column.past > 0 ? Math.min(last.level - 0.03 * e - column.dip, landscapeHeight(px, pz) - 0.15) : last.level - 0.03 * e - column.dip
+          vertex(px, py, pz, 0, 1, 0, last.depth * SHADE_DEPTH * column.depth, 0, along + dist, column.share * (column.past > 0 ? 1.1 : 1), endsInLake ? 1 : 0, column.past > 0 ? null : last.level)
+        }
+      }
+    }
+    strips(base, samples.length + EXTEND, COLUMNS.length, river.plunge)
     const plunge = river.plunge
     if (plunge) {
       // The pool under the wall: the lower channel's water, from the foot of the wall to where the ribbon takes up again.
@@ -741,7 +1011,10 @@ export function buildRiverGeometry(system: RiverSystem): BufferGeometry {
         for (const column of COLUMNS) {
           const side = column.share < 0 ? left[plunge.to]! : right[plunge.to]!
           const lateral = column.share * (side + column.past)
-          vertex(nodes[k]!.x - tz * lateral, low.level - column.dip, nodes[k]!.z + tx * lateral, 0, 1, 0, low.depth * SHADE_DEPTH * column.depth * 1.3, 0, alongAt[k]!, column.share)
+          const px = nodes[k]!.x - tz * lateral
+          const pz = nodes[k]!.z + tx * lateral
+          const py = column.past > 0 ? Math.min(low.level - column.dip, landscapeHeight(px, pz) - 0.15) : low.level - column.dip
+          vertex(px, py, pz, 0, 1, 0, low.depth * SHADE_DEPTH * column.depth * 1.3, 0, alongAt[k]!, column.share * (column.past > 0 ? 1.1 : 1))
         }
       }
       strips(pool, 2, COLUMNS.length)
@@ -754,6 +1027,7 @@ export function buildRiverGeometry(system: RiverSystem): BufferGeometry {
   geometry.setAttribute('aFall', new BufferAttribute(new Float32Array(falls), 1))
   geometry.setAttribute('aAlong', new BufferAttribute(new Float32Array(alongs), 1))
   geometry.setAttribute('aAcross', new BufferAttribute(new Float32Array(acrosses), 1))
+  geometry.setAttribute('aCalm', new BufferAttribute(new Float32Array(calms), 1))
   geometry.setIndex(new BufferAttribute(new Uint32Array(indices), 1))
   geometry.computeBoundingSphere()
   return geometry

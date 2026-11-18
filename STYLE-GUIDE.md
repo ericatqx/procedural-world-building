@@ -1,6 +1,6 @@
 # Style Guide
 
-**Status:** v0.2 — Established Direction  
+**Status:** v0.3 — Established Direction\
 **Project:** Procedural World Building  
 **Concept:** Shadow Ecology  
 **Visual library:** [Procedural World Visual Inspirations](https://www.are.na/erica-tang-9qecvysqjno/procedural-world-visual-references) on Are.na (evolves as references are collected)
@@ -80,6 +80,14 @@ The project can move between scientific visualization and spatial environment ra
 ---
 
 ## World
+
+### World principles
+- **Realistic rules, speculative life, stylized representation.** The world obeys plausible physical and ecological constraints; its organisms are invented; both are drawn in a stylized way.
+- **Plausible, simplified constraints.** Light, moisture, slope, elevation, and water decide where life can stand. Keep each rule simple enough to read.
+- **Fictional organisms, consistent rules.** Every species grows, ages, responds to its surroundings, and interacts by one set of rules, wherever it is seen.
+- **Sculptural, not photoreal.** A cohesive visual language of form, silhouette, and restrained natural colour.
+- **One world-space scale.** A plant has one position, height, and canopy footprint in every camera mode and level of detail. Distance changes how much is drawn, never how big or where.
+- **Observer first; overlays are optional.** The default world is what an observer would see. Coverage, habitat, light, and moisture are overlays the viewer turns on; their colours are never baked into the terrain or plants.
 
 ### Geometry
 Prefer abstract, structural, and biological forms over literal or realistic objects.
@@ -162,11 +170,65 @@ The Shadow Ecology prototype established:
 
 ---
 
+## Color Palette Exploration
+
+**Status: Exploring.** Three candidate palettes are being compared. None is chosen, and none is assigned to a world element yet: the aim is to learn how the colors relate, not to fix what each one means. The direction they serve is black and white, strong graphic composition and sculptural form, with restrained color and a few saturated accents (see *Color Means Something*).
+
+Each palette has two neutrals (black and a light gray), one saturated blue, and two supporting colors. The chips below render from the hex codes on GitHub.
+
+### A: Cobalt, Olive, Rust · *Exploring*
+
+![Palette A swatches](docs/images/palettes/palette-a.svg)
+
+`#000000` `#E6E6E6` `#0047AB` `#74776B` `#A3320B`
+
+A cool, clear blue against a gray-green neutral and one burnt, earthy accent. Quiet and mineral, with the rust reading as weathering, heat or iron.
+
+- **Terrain:** olive gray as stone and ground tone, with rust sparingly for exposed or oxidized strata.
+- **Water:** cobalt as the saturated signal.
+- **Vegetation:** the olive reads as living matter without becoming green.
+- **Living Architecture:** light gray and olive for tissue, rust for age or stress.
+- **Creatures:** rust as a small, warm mark against the cool field.
+
+### B: Cobalt, Bronze, Red · *Exploring*
+
+![Palette B swatches](docs/images/palettes/palette-b.svg)
+
+`#000000` `#E6E6E6` `#0047AB` `#C89933` `#BF0603`
+
+The warmest and most graphic of the three: primary-like blue, metallic bronze and a pure red. High contrast, with a poster or specimen-plate character; it needs the most restraint to avoid reading as bright or toy-like.
+
+- **Terrain:** mostly black, white and gray, with bronze limited to highlights such as crests or lit faces.
+- **Water:** cobalt.
+- **Vegetation:** bronze as a dry or seasonal state rather than a green.
+- **Living Architecture:** bronze as mineralized or metallic tissue.
+- **Creatures:** red as a rare signal of activity or life.
+
+### C: Electric Navy, Olive · *Exploring*
+
+![Palette C swatches](docs/images/palettes/palette-c.svg)
+
+`#000000` `#EFEFEF` `#090C9B` `#646E68` `#4F5D2F`
+
+A deep, vivid blue with two green-gray neutrals and no warm accent. The most natural and the most restrained: color separates blue from everything else, and the rest stays tonal.
+
+- **Terrain:** the gray-green as ground and rock tone.
+- **Water:** electric navy, strong against the light neutral.
+- **Vegetation:** the dark olive as the only plant-like color, kept dense and low in value.
+- **Living Architecture:** light gray, with the gray-green for sheltered or aged surfaces.
+- **Creatures:** dark olive, close to the ground tone; any color emphasis would have to come from the blue.
+
+### How these will be judged
+
+By rendered tests in the world, not by swatches. The questions: does the blue stay a signal and not a theme; do the neutrals keep the form legible and sculptural; does the palette stay restrained with all five colors on screen; and does it keep a distinct place for data overlays, which stay optional and are not baked into materials. Until then the world keeps its current neutral palette.
+
+---
+
 ## Open Decisions
 
 The following remain intentionally unresolved:
 
-- exact color palette
+- exact color palette (three candidates are being explored: see *Color Palette Exploration*)
 - final UI layout
 - terrain material details
 - lighting parameters
@@ -179,6 +241,10 @@ These should be resolved through visual tests and added to this guide as the pro
 ---
 
 ## Visual Changelog
+
+### v0.3
+- Added **Color Palette Exploration**: three candidate palettes (A Cobalt/Olive/Rust, B Cobalt/Bronze/Red, C Electric Navy/Olive), all marked Exploring.
+- Added **World principles** (realistic rules, speculative life, stylized representation; consistent scale across modes and levels of detail; observer-oriented, with optional data overlays).
 
 ### v0.2
 - Added **Processes Leave Traces** as a core principle.

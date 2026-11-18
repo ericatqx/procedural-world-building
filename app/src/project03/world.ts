@@ -42,3 +42,8 @@ export function worldFor(seed: number): World {
   last = createWorld(seed)
   return last
 }
+
+/** The world last made (the one the 3D view is showing), or null before any: for read-only views of its data (the Project page's data plate). */
+export function currentWorld(): World | null {
+  return last
+}

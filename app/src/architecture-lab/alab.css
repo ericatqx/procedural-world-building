@@ -1,0 +1,113 @@
+/* Architecture Lab: rules specific to this workspace; the shared instrument layer is in ui/system.css and the choice grid in vlab.css. */
+.alab .alab-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.alab .alab-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alab .alab-facts dt {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.alab .alab-facts dd {
+  margin: 0;
+  text-align: right;
+  font-size: var(--text-label);
+}
+
+.alab .note code {
+  font-family: var(--mono);
+}
+
+.alab .alab-compare {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: var(--text-label);
+}
+
+.alab .alab-compare th,
+.alab .alab-compare td {
+  padding: 3px 4px;
+  text-align: right;
+  font-weight: 400;
+}
+
+.alab .alab-compare th:first-child {
+  text-align: left;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+}
+
+.alab .alab-compare thead th {
+  color: var(--ui-muted);
+}
+
+.alab .alab-compare tr + tr {
+  border-top: 1px solid var(--ui-line, rgba(255, 255, 255, 0.08));
+}
+
+/* Overhang lifecycle: a segmented bar (maturity marked) and a list of the seven stages, the current one highlighted. */
+.alab .alab-bar {
+  display: flex;
+  height: 6px;
+  margin: 2px 0 8px;
+  gap: 1px;
+}
+.alab .alab-seg {
+  background: rgba(255, 255, 255, 0.14);
+}
+.alab .alab-seg.milestone { background: rgba(217, 212, 196, 0.45); }
+.alab .alab-seg.on { background: var(--ui-accent, #d9d4c4); }
+.alab .alab-stagelist {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.alab .alab-stagelist li button {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  grid-template-areas: 'n name' '. desc';
+  column-gap: 6px;
+  width: 100%;
+  padding: 3px 4px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-left: 2px solid transparent;
+  color: var(--ui-muted, #8a8a80);
+  cursor: pointer;
+  font: inherit;
+}
+.alab .alab-stagelist li.on button {
+  color: var(--ui-text, #e8e4d6);
+  border-left-color: var(--ui-accent, #d9d4c4);
+  background: rgba(255, 255, 255, 0.05);
+}
+.alab .alab-stagelist b { grid-area: n; font-weight: 400; opacity: 0.6; }
+.alab .alab-stagelist .name { grid-area: name; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
+.alab .alab-stagelist .desc { grid-area: desc; font-size: 11px; opacity: 0.8; }
+.alab .alab-busy {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  font: 11px/1 ui-monospace, monospace;
+  color: #d9d4c4;
+  background: rgba(8, 10, 14, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}

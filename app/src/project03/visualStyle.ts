@@ -1,7 +1,12 @@
 import { useSyncExternalStore } from 'react'
+import { Vector4, type Material } from 'three'
 import { PALETTE_HEAD, paletteChunk, paletteUniforms, type PaletteKind } from './visualStudy.ts'
-import { illustrationChunk, illustrationUniforms, STUDY02_HEAD, study02Chunk, study02Uniforms } from './visualStudy02.ts'
+import { illustrationChunk, illustrationUniforms, STUDY02_HEAD, study02Chunk, study02Extra, study02Uniforms } from './visualStudy02.ts'
 import { MONO_HEAD, monoChunk, monoUniforms } from './visualStudy03.ts'
+import { ATLAS_HEAD, atlasChunk, atlasDraws, atlasUniforms } from './visualStudyAtlas.ts'
+import { PAINT_HEAD, paintChunk, paintUniforms } from './visualStudyPainting.ts'
+import { WORLDS_HEAD, worldsChunk, worldsUniforms } from './visualStudyWorlds.ts'
+import { DIAG_HEAD, diagChunk, diagUniforms } from './visualDiagnostics.ts'
 
 /**
  * Shadow Ecology 0.3 — VISUAL EXPERIMENTS: four looks for the same world, compared live. Each is a set of a few numbers that the terrain's and the plants'
@@ -40,7 +45,13 @@ const SETTINGS: Record<VisualPreset, Setting> = {
 export const visualUniforms = { uVisGrade: { value: 0 }, uVisGlow: { value: 0 }, uVisShade: { value: 0 } }
 
 /** The two illustrative styles' uniforms (all at rest in Original: zero, and the mist factor 1). */
-export const styleUniforms = { uStySimplify: { value: 0 }, uStyBands: { value: 0 }, uStyMono: { value: 0 }, uStyInk: { value: 0 }, uStyRim: { value: 0 }, uStyLift: { value: 0 }, uStyMist: { value: 1 } }
+export const styleUniforms = { uStySimplify: { value: 0 }, uStyBands: { value: 0 }, uStyMono: { value: 0 }, uStyInk: { value: 0 }, uStyRim: { value: 0 }, uStyLift: { value: 0 }, uStyMist: { value: 1 }, uFormPlain: { value: 0 }, uFormShow: { value: 1 }, uFormGround: { value: 1 } }
+/**
+ * The /preview site's World Formation (formationLayer.tsx) shows the real terrain before its materials: uFormPlain draws the ground and the
+ * island's sides as plain clay, lit by the sun alone (1), or in its own materials (0), and anything between; uFormShow brings that clay up out of
+ * the black (0 to 1). Both are 0 and 1, and so do nothing, everywhere else.
+ */
+
 
 /** Factors on what the sky writes each frame (Sky.tsx) and the orbiting views' haze (LandscapeView.tsx): 1 and 0 leave them as they were. */
 export const styleScalars = { key: 1, fill: 1, fog: 1, fogNeutral: 0 }
@@ -81,8 +92,14 @@ export function useVisualPreset(): VisualPreset {
 /** For a plant material: the Contrast grading of its colour, and (for the shade-loving plants) the Glow. */
 export function applyPlantStyle(shader: Shader, shadeLover: boolean) {
   Object.assign(shader.uniforms, visualUniforms, styleUniforms)
+  // The plant's OWN vertex colour, before its instance tint and the grade below: what the island's finish reads to tell bark from leaf
+  // (visualStudyWorlds.ts › dsGreen). Read after the tint, a near-neutral bark pulled toward a species' green tint was taken for foliage, and the
+  // same bark drew brown on one tree and green on another.
+  shader.vertexShader = shader.vertexShader
+    .replace('void main() {', 'varying vec3 vPlantRaw;\nvoid main() {')
+    .replace('#include <color_vertex>', '#include <color_vertex>\n#ifdef USE_COLOR\n  vPlantRaw = color.rgb;\n#else\n  vPlantRaw = vec3(0.4, 0.5, 0.35);\n#endif')
   shader.fragmentShader = shader.fragmentShader
-    .replace('void main() {', 'uniform float uVisGrade;\nuniform float uVisGlow;\nuniform float uStySimplify;\nvoid main() {')
+    .replace('void main() {', '#define PLANT_RAW\nvarying vec3 vPlantRaw;\nuniform float uVisGrade;\nuniform float uVisGlow;\nuniform float uStySimplify;\nvoid main() {')
     .replace(
       '#include <color_fragment>',
       `#include <color_fragment>
@@ -116,6 +133,28 @@ export function applyPlantStyle(shader: Shader, shadeLover: boolean) {
 
 // ------------------------------------------------------------------------------------------------------------- the illustrative styles
 
+/**
+ * THE PLACE MARKER (PlacementCursor.tsx), one for Explore and Approach (Round 05): a ring with a line a fifth of its radius wide, a centre dot and a
+ * faint fill, in a pale colour where the place can be chosen and a warning red where it cannot, drawn by the surfaces themselves, so it lies on the
+ * ground wherever the ground goes and on the water where the pointer meets water. Over the finished colour, so it reads the same in every visual.
+ * uPick: x, z, the ring's radius and its line's width (metres; the line is given on its own, so a smaller ring keeps the same stroke); uPickOn: 0
+ * hidden, 1 a place that can be chosen, 2 one that cannot.
+ */
+export const pickUniforms = { uPick: { value: new Vector4(0, 0, 10, 1) }, uPickOn: { value: 0 } }
+
+const pickMarker = (xz: string) => /* glsl */ `
+    if (uPickOn > 0.5) {
+      float pkR = uPick.z;
+      float pkD = length(${xz} - uPick.xy);
+      float pkAa = max(fwidth(pkD), 1e-3);
+      float pkLine = uPick.w;
+      float pkRing = smoothstep(pkR - pkLine - pkAa, pkR - pkLine + pkAa, pkD) * (1.0 - smoothstep(pkR - pkAa, pkR + pkAa, pkD));
+      float pkFill = 1.0 - smoothstep(pkR - pkLine - pkAa, pkR - pkLine + pkAa, pkD);
+      float pkDot = 1.0 - smoothstep(pkLine * 0.5 - pkAa, pkLine * 0.5 + pkAa, pkD);
+      vec3 pkC = uPickOn > 1.5 ? vec3(0.584, 0.117, 0.102) : vec3(0.791, 0.831, 0.930);
+      outgoingLight = mix(outgoingLight, pkC, max(max(pkRing * 0.85, pkDot * 0.9), pkFill * 0.08));
+    }`
+
 type Shader = { uniforms: Record<string, { value: unknown }>; fragmentShader: string; vertexShader: string }
 export type StyleKind = 'terrain' | 'architecture' | 'plant' | 'creature' | 'water' | 'shell'
 
@@ -131,6 +170,10 @@ const KIND: Record<StyleKind, { ink: number; rim: number; lift: number; world: '
 }
 
 const STYLE_HEAD = /* glsl */ `
+uniform float uFormPlain;
+uniform float uFormShow;
+// (World Formation: how far the vegetation's ground cover (vegGround.ts weights) has come in, 0 to 1; 1 everywhere else.)
+uniform float uFormGround;
 uniform float uStyBands;
 uniform float uStyMono;
 uniform float uStyInk;
@@ -212,13 +255,27 @@ function styleFinish(kind: StyleKind, studyOnly = false, waterDepth = false): st
     }`
     : ''
   // Visual Study 02 (visualStudy02.ts): terrain and architecture only.
-  const ink = study02Chunk(kind === 'terrain' || kind === 'architecture' ? kind : 'other', world)
+  const ink = study02Chunk(kind === 'terrain' || kind === 'architecture' ? kind : 'other', world) + study02Extra(kind, waterDepth, k.world === 'none' ? null : world)
   // …and its illustration modes, on every kind.
-  const il = illustrationChunk(kind, k.world === 'none' ? null : world) + monoChunk(kind, k.world === 'none' ? null : world, waterDepth)
+  const il = illustrationChunk(kind, k.world === 'none' ? null : world) + monoChunk(kind, k.world === 'none' ? null : world, waterDepth) + atlasChunk(kind, waterDepth) + paintChunk(kind, waterDepth) + worldsChunk(kind, waterDepth) + diagChunk(kind, waterDepth)
   if (studyOnly) return `{${il}
   }
   `
-  return `{${paletteChunk(PALETTE[kind].kind, PALETTE[kind].xz)}${ink}${il}
+  const plain = kind === 'terrain' || kind === 'shell'
+    ? `
+    if (uFormPlain > 0.001 || uFormShow < 0.999) {
+      // FORMATION'S PLAIN GROUND: one clay grey lit by the sun alone (the construction's own lighting: formationLayer.tsx), blended toward the
+      // materials as uFormPlain falls, the whole island at once.
+      float fpL = 0.0;
+      #if NUM_DIR_LIGHTS > 0
+        fpL = max(dot(normalize(normal), directionalLights[0].direction), 0.0);
+      #endif
+      vec3 fpPlain = vec3(0.6, 0.59, 0.565) * (0.36 + 0.7 * fpL);
+      outgoingLight = mix(outgoingLight, fpPlain, uFormPlain);
+      outgoingLight = mix(vec3(0.04), outgoingLight, uFormShow);
+    }`
+    : ''
+  return `{${paletteChunk(PALETTE[kind].kind, PALETTE[kind].xz)}${ink}${il}${plain}
     float styLum = dot(outgoingLight, vec3(0.299, 0.587, 0.114));
     ${k.lift > 0 ? `outgoingLight *= 1.0 + 0.12 * uStyLift; styLum *= 1.0 + 0.12 * uStyLift;` : ''}
     if (uStyBands > 0.0) {
@@ -233,7 +290,7 @@ function styleFinish(kind: StyleKind, studyOnly = false, waterDepth = false): st
       // Monochrome: the value with a little more contrast than the colour world had (deeper shade, held highs), on a faintly warm paper grey.
       float styT = pow(clamp(styLum, 0.0, 4.0), 1.15) * 1.1;
       outgoingLight = mix(outgoingLight, vec3(styT) * vec3(1.0, 0.985, 0.95)${kind === 'water' ? ' * 0.45' : ''}, uStyMono);
-    }${strokes}${rim}
+    }${strokes}${rim}${kind === 'terrain' ? pickMarker('vVegXZ') : kind === 'water' ? pickMarker('vStyWorld.xz') : ''}
   }
   `
 }
@@ -253,13 +310,93 @@ export function applyStyleFinish(shader: Shader, kind: StyleKind, studyOnly = fa
       return
     }
   }
-  Object.assign(shader.uniforms, styleUniforms, paletteUniforms, study02Uniforms, illustrationUniforms, monoUniforms)
+  Object.assign(shader.uniforms, styleUniforms, paletteUniforms, study02Uniforms, illustrationUniforms, monoUniforms, atlasUniforms, paintUniforms, worldsUniforms, diagUniforms)
+  const picks = kind === 'terrain' || kind === 'water'
+  if (picks) Object.assign(shader.uniforms, pickUniforms)
   shader.fragmentShader = shader.fragmentShader
-    .replace('void main() {', `${STYLE_HEAD}${PALETTE_HEAD}${STUDY02_HEAD}${MONO_HEAD}${vary ? 'varying vec3 vStyWorld;\n' : ''}void main() {`)
+    .replace('void main() {', `${STYLE_HEAD}${PALETTE_HEAD}${STUDY02_HEAD}${MONO_HEAD}${ATLAS_HEAD}${PAINT_HEAD}${WORLDS_HEAD}${DIAG_HEAD}${picks ? 'uniform vec4 uPick;\nuniform float uPickOn;\n' : ''}${vary ? 'varying vec3 vStyWorld;\n' : ''}void main() {`)
     .replace('#include <opaque_fragment>', `${styleFinish(kind, studyOnly, shader.fragmentShader.includes('varying float vWaterDepth'))}\n#include <opaque_fragment>`)
+  // The World Visual Studies (Atlas, Painting, Stylized, Diorama) draw their palettes as they are: the surfaces it styles are not tone-mapped while it is on (the paper background is not either).
+  if (atlasDraws(kind)) {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <tonemapping_fragment>',
+      '#if defined( TONE_MAPPING )\n  if (uAtlasOn < 0.5 && uPaintOn < 0.5 && uIwOn < 0.5 && uDioOn < 0.5 && uDiag < 0.5) gl_FragColor.rgb = toneMapping( gl_FragColor.rgb );\n#endif',
+    )
+  }
   if (vary) {
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', 'varying vec3 vStyWorld;\nvoid main() {')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n  vStyWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;')
   }
 }
+
+// ------------------------------------------------------------------------------------------------------------- specialisation
+
+/**
+ * Every styled material carries the code of every visual style (the presets, Visual Studies 01-03, the World Visual Studies and the Explore Data views), each
+ * behind an on/off uniform. Measured in Round 03, carrying all of it cost the GPU about three quarters of each frame even though only one style draws, so the
+ * shaders are SPECIALISED: these switches are written into each program as constants with their current values, the compiler drops every branch that is off,
+ * and a material is recompiled only when a switch changes (a different visual filter or data view: a short pause once, then cached). What is drawn is
+ * unchanged: the active style's code and values are exactly as before. Only discrete choices are folded, never a value that moves during play.
+ */
+const SWITCHES: Record<string, { value: number }> = {
+  uVisGrade: visualUniforms.uVisGrade,
+  uVisGlow: visualUniforms.uVisGlow,
+  uVisShade: visualUniforms.uVisShade,
+  uStySimplify: styleUniforms.uStySimplify,
+  uStyBands: styleUniforms.uStyBands,
+  uStyMono: styleUniforms.uStyMono,
+  uStyInk: styleUniforms.uStyInk,
+  uStyRim: styleUniforms.uStyRim,
+  uStyLift: styleUniforms.uStyLift,
+  uPalOn: paletteUniforms.uPalOn,
+  uInkOn: study02Uniforms.uInkOn,
+  // (Clear Ink's switch, read by the ground under its own name: vegGround.ts.)
+  uVgInk: study02Uniforms.uInkOn,
+  uIlOn: illustrationUniforms.uIlOn as { value: number },
+  uIlSimplify: illustrationUniforms.uIlSimplify as { value: number },
+  uMonoOn: monoUniforms.uMonoOn,
+  uAtlasOn: atlasUniforms.uAtlasOn,
+  uPaintOn: paintUniforms.uPaintOn,
+  uIwOn: worldsUniforms.uIwOn,
+  uDioOn: worldsUniforms.uDioOn,
+  uDiag: diagUniforms.uDiag,
+}
+const SWITCH_NAMES = Object.keys(SWITCHES)
+const glslFloat = (v: number) => (Number.isInteger(v) ? v.toFixed(1) : String(v))
+const switchKey = () => SWITCH_NAMES.map((k) => SWITCHES[k]!.value).join(',')
+
+/** The materials that take the switches as constants, so they can be recompiled when one changes. */
+const specialised = new Set<Material>()
+let lastKey = switchKey()
+
+/** Folds the style switches into a material's program (call after its onBeforeCompile and customProgramCacheKey are set). */
+export function specialiseStyle(material: Material) {
+  const build = material.onBeforeCompile
+  const key = material.customProgramCacheKey
+  material.onBeforeCompile = (shader, renderer) => {
+    build.call(material, shader, renderer)
+    for (const name of SWITCH_NAMES) {
+      const declared = new RegExp(`uniform float ${name};`, 'g')
+      const constant = `const float ${name} = ${glslFloat(SWITCHES[name]!.value)};`
+      shader.fragmentShader = shader.fragmentShader.replace(declared, constant)
+      shader.vertexShader = shader.vertexShader.replace(declared, constant)
+    }
+  }
+  material.customProgramCacheKey = () => `${key.call(material)}|${switchKey()}`
+  specialised.add(material)
+  material.addEventListener('dispose', () => specialised.delete(material))
+}
+
+/** Called once a frame (LandscapeView.tsx): when a visual filter or data view has changed a switch, the specialised materials are rebuilt (each program is cached). */
+export function syncStyleSwitches() {
+  const key = switchKey()
+  if (key === lastKey) return
+  lastKey = key
+  for (const m of specialised) m.needsUpdate = true
+}
+
+// Development only: this module holds state that compiled shaders depend on (uniforms, specialised switches). A hot update would load a second copy
+// of it while existing materials keep the first, and the scene falls back to the unstyled look (cobalt water, plain underside, grey ground) until a
+// reload. A full reload instead (Round 08D; Vite's hot.decline() is a no-op, so the update is accepted here and answered with a reload).
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload())

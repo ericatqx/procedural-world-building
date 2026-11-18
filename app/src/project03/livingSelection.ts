@@ -26,8 +26,18 @@ export function select(selection: Selection) {
   emit()
 }
 
+/** The population now planned (null before the worker has made it): for the parts of the scene that must keep clear of the architecture. */
+export function currentPopulation(): Population | null {
+  return store.population
+}
+
 export function currentSelection(): Selection {
   return store.selection
+}
+
+/** Changes every time the selection (or the population) is set: a click that picked something has moved it. */
+export function selectionStamp(): number {
+  return store.version
 }
 
 /**

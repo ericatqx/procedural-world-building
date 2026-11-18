@@ -4,6 +4,10 @@ import { chooseSite, skin, waterBearing, waterDistance } from './livingArchitect
 import { surfaceNets } from './livingMesh.ts'
 import { capsule, overhangOptionsFromUrl, rect2, slab, smin } from './livingOverhang.ts'
 import { growOverhang3 } from './livingOverhang3.ts'
+import { architectureStyle } from './livingStyle.ts'
+import { refinedWorldForm } from './livingRefined.ts'
+import { refinedForm } from '../architecture-lab/overhangRefined.ts'
+import { terrainContext } from '../architecture-lab/terrainContext.ts'
 import { vnoise } from './livingStrata.ts'
 import { landscapeHeight } from './terrain.ts'
 import type { OrganismPlan, Population } from './livingEcology.ts'
@@ -34,7 +38,7 @@ const waitingGrown = new Map<string, (message: Extract<WorkerOut, { type: 'grown
 const waitingCoarse = new Map<string, (message: Extract<WorkerOut, { type: 'coarse' }>) => void>()
 const waitingPopulation = new Map<number, (population: Population) => void>()
 const waitingBuilds = new Map<string, (message: Extract<WorkerOut, { type: 'built' }>) => void>()
-const stages = new Map<number, (geometry: BufferGeometry) => void>()
+const stages = new Map<number, (geometry: BufferGeometry, mesh: PackedMesh) => void>()
 let nextId = 0
 
 function unpack(mesh: PackedMesh): BufferGeometry {
@@ -77,13 +81,13 @@ function connect(): Worker {
     }
     const done = stages.get(message.id)
     stages.delete(message.id)
-    if (done) done(unpack(message.mesh))
+    if (done) done(unpack(message.mesh), message.mesh)
   }
   return worker
 }
 
 // ------------------------------------------------------------------------------------------------ the fingerprint
-const SOURCES = [growOverhang3, fieldAt, surfaceNets, capsule, rect2, slab, smin, vnoise, skin, chooseSite, waterBearing, waterDistance, landscapeHeight].map((f) => f.toString()).join('\n')
+const SOURCES = [growOverhang3, refinedForm, refinedWorldForm, terrainContext, fieldAt, surfaceNets, capsule, rect2, slab, smin, vnoise, skin, chooseSite, waterBearing, waterDistance, landscapeHeight].map((f) => f.toString()).join('\n')
 
 function fnv(text: string, h = 0x811c9dc5): number {
   for (let i = 0; i < text.length; i += 1) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193)
@@ -103,8 +107,8 @@ function fingerprint(world: World, seed: number, variation: number, organism?: O
   }
   samples.push(waterDistance(world, sx, sz), ...waterBearing(world, sx, sz))
   const ground = fnv(samples.map((v) => v.toFixed(4)).join(','))
-  const base = `overhang3:${seed}:${variation}:${fnv(SOURCES).toString(36)}:${ground.toString(36)}`
-  return organism ? `${base}:${organism.index}:${fnv(JSON.stringify(organism.form)).toString(36)}` : base
+  const base = `overhang3${architectureStyle() === 'refined' ? 'r' : ''}:${seed}:${variation}:${fnv(SOURCES).toString(36)}:${ground.toString(36)}`
+  return organism ? `${base}:${organism.index}:${fnv(JSON.stringify([organism.form, organism.ridge, organism.crowding, organism.base])).toString(36)}` : base
 }
 
 // ------------------------------------------------------------------------------------------------ the browser cache
@@ -112,6 +116,9 @@ const DB = 'shadow-ecology'
 const STORE = 'living-architecture'
 /** How many meshes are kept (the reference about 2 MB, the others much less): about the population of two seeds. */
 const KEEP = 72
+/** Lifecycle stage meshes are kept apart (their keys start with this) and evicted among themselves: about four views of a population's ages. */
+const STAGE = '~stage:'
+const KEEP_STAGES = 160
 
 function open(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
@@ -147,8 +154,10 @@ async function write(key: string, value: Stored) {
     const store = db.transaction(STORE, 'readwrite').objectStore(STORE)
     const keys = store.getAllKeys()
     keys.onsuccess = () => {
-      const others = (keys.result as string[]).filter((k) => k !== key)
-      for (const k of others.slice(0, Math.max(0, others.length - (KEEP - 1)))) store.delete(k)
+      const stage = key.startsWith(STAGE)
+      const others = (keys.result as string[]).filter((k) => k !== key && k.startsWith(STAGE) === stage)
+      const keep = stage ? KEEP_STAGES : KEEP
+      for (const k of others.slice(0, Math.max(0, others.length - (keep - 1)))) store.delete(k)
       store.put(value, key)
     }
   } catch {
@@ -201,22 +210,22 @@ export function buildOrganism(world: World, seed: number, population: Population
   const variation = overhangOptionsFromUrl().variation ?? 0
   const promise = new Promise<OverhangBuilt>((resolve) => {
     later(() => {
-      const key = index === 0 ? fingerprint(world, seed, variation) : fingerprint(world, seed, variation, population!.organisms[index]!)
+      const key = index === 0 && architectureStyle() !== 'refined' ? fingerprint(world, seed, variation) : fingerprint(world, seed, variation, population!.organisms[index]!)
       let done = false
       const finish = (stored: Stored, cached: boolean) => {
         if (done) return
         done = true
         resolve({ key, geometry: unpack(stored.mesh), stats: stored.stats, site: stored.site, ground: stored.ground, height: stored.height, cached })
       }
-      // The worker always grows the organism (its lifecycle is needed for every state but the mature one); the cache, when
-      // it has the mesh, only lets it be shown before the worker is done.
+      // The worker always grows the organism (its lifecycle is needed for every state but the mature one). The cache can
+      // resolve the mature mesh early; the scene shows that mesh only while the organism is actually mature.
       waitingBuilds.set(key, (message) => {
         const stored: Stored = { mesh: message.mesh, stats: message.stats, site: message.site, ground: message.ground, height: message.height }
         // Stored only when it was not already: the browser copies it when it writes it, after this.
         if (!done) void write(key, stored)
         finish(stored, false)
       })
-      const message: WorkerIn = { type: 'build', key, seed, index, variation }
+      const message: WorkerIn = { type: 'build', key, seed, index, variation, style: architectureStyle() }
       connect().postMessage(message)
       void read(key).then((stored) => {
         if (stored) finish(stored, true)
@@ -228,17 +237,17 @@ export function buildOrganism(world: World, seed: number, population: Population
 }
 
 /**
- * An organism's coarse form: the same organism, grown on a grid about three times coarser, so it costs a few milliseconds
- * and every organism can stand in its place at once. It is shown until the fine mesh (buildOrganism) arrives.
+ * An organism's coarse form: the same organism, grown on a grid about three times coarser. The scene does not draw it.
+ * A young organism stays hidden until the mesh for its age exists, rather than standing in as this mature form scaled down.
  */
 export function buildCoarse(seed: number, index: number): Promise<CoarseBuilt> {
   const own = forSeed(seed)
   const existing = own.coarse.get(index)
   if (existing) return existing
-  const key = `coarse:${seed}:${index}`
+  const key = `coarse:${architectureStyle()}:${seed}:${index}`
   const promise = new Promise<CoarseBuilt>((resolve) => {
     waitingCoarse.set(key, (message) => resolve({ geometry: unpack(message.mesh), site: message.site, ground: message.ground, height: message.height }))
-    const message: WorkerIn = { type: 'coarse', key, seed, index, variation: overhangOptionsFromUrl().variation ?? 0 }
+    const message: WorkerIn = { type: 'coarse', key, seed, index, variation: overhangOptionsFromUrl().variation ?? 0, style: architectureStyle() }
     connect().postMessage(message)
   })
   own.coarse.set(index, promise)
@@ -274,10 +283,39 @@ export function setViewpoint(x: number, z: number) {
   connect().postMessage(message)
 }
 
-/** An organism's mesh at a lifecycle age and later-life state (the caller owns it). Answered in order, after its build. */
-export function organismAt(key: string, age: number, late?: LateState, near = 0): Promise<BufferGeometry> {
+/**
+ * An organism's mesh at a lifecycle age and later-life state (the caller owns it). Answered in order, after its build.
+ *
+ * MEASURED AT LOAD: the mature meshes come from the browser cache in a few seconds, but every younger or older organism waits for a stage mesh, and a stage
+ * can only be made once the single worker has grown that organism's whole lifecycle: one after another, so about three dozen structures appeared one by one
+ * over the following fifteen seconds or more. A stage mesh is now kept in the browser too (keyed by the organism's own fingerprint and the exact state asked
+ * for, which at a given world year is the same on every load), so the featured state's architecture is ready together on a return visit; the worker still
+ * grows the lifecycle for the states that follow.
+ */
+export function organismAt(key: string, ageAsked: number, lateAsked?: LateState, near = 0): Promise<BufferGeometry> {
   const id = nextId++
-  const promise = new Promise<BufferGeometry>((resolve) => stages.set(id, resolve))
+  // The state is taken on a fine grid (far finer than the steps at which the scene asks for a new mesh), so the same year gives the same key while the day runs.
+  const q = (v: number, step: number) => Math.round(v / step) * step
+  const age = q(ageAsked, 0.002)
+  const late: LateState | undefined = lateAsked ? { grow: q(lateAsked.grow, 0.01), recede: q(lateAsked.recede, 0.01), regen: q(lateAsked.regen, 0.01), ...(lateAsked.ruin !== undefined ? { ruin: q(lateAsked.ruin, 0.005) } : {}) } : undefined
+  const stageKey = `${STAGE}${key}:${age.toFixed(3)}:${late ? [late.grow, late.recede, late.regen, late.ruin ?? -1].map((v) => v.toFixed(3)).join(',') : ''}`
+  const promise = new Promise<BufferGeometry>((resolve) => {
+    let done = false
+    stages.set(id, (geometry, mesh) => {
+      if (done) {
+        geometry.dispose()
+        return
+      }
+      done = true
+      void write(stageKey, { mesh, stats: {}, site: [0, 0], ground: 0, height: 0 })
+      resolve(geometry)
+    })
+    void read(stageKey).then((stored) => {
+      if (!stored || done) return
+      done = true
+      resolve(unpack(stored.mesh))
+    })
+  })
   const message: WorkerIn = { type: 'stage', key, id, age, late, near }
   connect().postMessage(message)
   return promise
@@ -291,8 +329,8 @@ export function prefetchArchitecture(world: World, variant: string) {
   if (variant !== 'overhang3' || typeof Worker === 'undefined') return
   const seed = world.seed
   void loadPopulation(seed).then((population) => {
-    // The whole population first, coarse; then the fine builds, which the worker takes nearest the view first.
-    for (const o of population.organisms) void buildCoarse(seed, o.index)
+    // Fine builds only. A coarse mature stand-in is not drawn, and queueing one ahead of these builds would keep the
+    // age mesh from being ready when an organism first appears.
     for (const o of population.organisms) void buildOrganism(world, seed, population, o.index)
   })
 }

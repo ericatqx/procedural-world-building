@@ -1,10 +1,10 @@
-import { BufferAttribute, BufferGeometry, Float32BufferAttribute } from 'three'
+import { BufferAttribute, BufferGeometry, DataTexture, Float32BufferAttribute, LinearFilter, RGBAFormat, UnsignedByteType } from 'three'
 import { PROJECT_COLORS } from '../project/materials.ts'
 import { clamp01, lerp, smoothstep } from '../project02/core.ts'
 import { LANDFORM_02 } from '../project02/landform.ts'
 import { perlin2 } from '../shared/noise/perlin.ts'
 import { simplex2 } from '../shared/noise/simplex.ts'
-import { ISLAND_METERS_PER_UNIT, LANDSCAPE, islandRadius, landscapeHeight, type LandscapeConfig } from './terrain.ts'
+import { ISLAND_METERS_PER_UNIT, LANDSCAPE, islandRadius, landscapeHeight, terrainChannel, type LandscapeConfig } from './terrain.ts'
 
 /** Spacings up to this use the apron samples for normals; coarser ones sample the surface directly. */
 const APRON_STEP = 4
@@ -12,6 +12,98 @@ const APRON_STEP = 4
 const SKIRT_BASE = 8
 
 export type ChunkNeighbors = { e: number; w: number; n: number; s: number }
+
+/**
+ * The lod each chunk is drawn at, written by the terrain field (LandscapeView.tsx) as it rebuilds. Things that stand on the ground (the creatures)
+ * read it through `drawnHeight`, so they stand on the surface that is drawn, not on the exact height field: between the 4 m lattice points the drawn
+ * triangles lie up to a couple of decimetres below a rounded swell (or above a hollow), which is the whole height of a litter crawler.
+ */
+export const drawnLods: { lods: Int8Array | null } = { lods: null }
+
+/**
+ * The height of a lattice vertex at a given spacing (Round 07). A river channel can be far narrower than the lattice (a 3 m stream on a 4, 8 or 16 m
+ * grid): the carve cuts it into the exact height field, but the lattice only samples that field at its vertices, so the channel showed only where a
+ * vertex happened to fall in it, and the stream broke into dashes, most at middle distance. Now a vertex whose own cell a channel's centre line
+ * crosses takes the channel's bed there: the drawn ground always holds the channel, at every level of detail, and the water no longer needs lifting
+ * over a lattice that misses it. Elsewhere, the plain height.
+ */
+export function latticeHeight(x: number, z: number, step: number, config: LandscapeConfig = LANDSCAPE): number {
+  const h = landscapeHeight(x, z, config)
+  if (step < 4) return h
+  // (Within about a cell's half-diagonal on the coarse levels, so a channel crossing a cell corner-to-corner is not missed.)
+  const c = terrainChannel(x, z, step * (step >= 8 ? 0.8 : 0.6))
+  return c ? Math.min(h, landscapeHeight(c.x, c.z, config)) : h
+}
+
+/**
+ * Round 05 — how far the rivers must stand above the terrain, chunk by chunk, for the terrain as it is DRAWN: a narrow carved channel is not resolved
+ * by a coarse lattice, whose triangles then rise over the river's water. At 4 m the channel is resolved; at 8 m its edges just are; at 16 m the
+ * lattice stands up to about 2.8 m over the water inside the channel (measured over the island's rivers). The river used to be lifted by the camera's
+ * distance alone, so wherever a chunk was coarser than that distance assumed (while it waits to be rebuilt after a zoom, or holds its level against
+ * flicker) the river vanished under it in chunk-shaped, rectangular gaps. Now the lift follows the drawn level (WaterLayer.tsx reads this map):
+ * one texel per chunk, each the most any chunk around it needs, so a coarse chunk is covered to its edges.
+ */
+// Round 06: a little lift at the fine levels too. At the ribbon's edge (where it meets the carved bank exactly) the 4 m lattice stands up to about
+// 0.25 m over the water (0.43 m at 8 m), so the drawn terrain, in straight 4 m facets, decided where the river's edge showed: a chunky, angular line.
+// Standing the water just clear of it lets the ribbon's own smooth edge (its curved course, sampled every few metres) be the shoreline; it meets
+// the bank a few decimetres beyond, where the ribbon dips under it.
+// Round 07: the coarse levels no longer need metres of lift (the lattice holds the channel: latticeHeight), only these small margins.
+const LIFT_BY_LOD = [0.3, 0.3, 0.45, 0.8, 1.2]
+const LIFT_RANGE = 2
+const LIFT_ACROSS = Math.round(LANDSCAPE.size / LANDSCAPE.chunkSize)
+const liftTexture = new DataTexture(new Uint8Array(LIFT_ACROSS * LIFT_ACROSS * 4), LIFT_ACROSS, LIFT_ACROSS, RGBAFormat, UnsignedByteType)
+liftTexture.magFilter = LinearFilter
+liftTexture.minFilter = LinearFilter
+liftTexture.needsUpdate = true
+export const drawnLift = { uniform: { value: liftTexture } }
+
+/** Rewrites the lift map from the drawn levels (called when chunks have been rebuilt). */
+export function refreshDrawnLift() {
+  const lods = drawnLods.lods
+  if (!lods) return
+  const n = LIFT_ACROSS
+  const data = liftTexture.image.data as Uint8Array
+  for (let iz = 0; iz < n; iz += 1)
+    for (let ix = 0; ix < n; ix += 1) {
+      let lift = 0
+      for (let dz = -1; dz <= 1; dz += 1)
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const jx = ix + dx
+          const jz = iz + dz
+          if (jx < 0 || jz < 0 || jx >= n || jz >= n) continue
+          const lod = lods[jx + jz * n]!
+          if (lod >= 0) lift = Math.max(lift, LIFT_BY_LOD[lod] ?? 0)
+        }
+      data[(ix + iz * n) * 4] = Math.round(Math.min(1, lift / LIFT_RANGE) * 255)
+    }
+  liftTexture.needsUpdate = true
+}
+
+/** The height of the drawn terrain at a point: the triangle of its chunk's lattice it falls in, split along the same diagonal as buildChunkGeometry. */
+export function drawnHeight(x: number, z: number, config: LandscapeConfig = LANDSCAPE): number {
+  const lods = drawnLods.lods
+  const half = config.size * 0.5
+  const across = Math.round(config.size / config.chunkSize)
+  const ix = Math.floor((x + half) / config.chunkSize)
+  const iz = Math.floor((z + half) / config.chunkSize)
+  const lod = lods && ix >= 0 && iz >= 0 && ix < across && iz < across ? lods[ix + iz * across]! : -1
+  if (lod < 0) return landscapeHeight(x, z, config)
+  const step = config.lodStep[lod]!
+  const gx = (x + half) / step
+  const gz = (z + half) / step
+  const i = Math.floor(gx)
+  const j = Math.floor(gz)
+  const fx = gx - i
+  const fz = gz - j
+  const x0 = i * step - half
+  const z0 = j * step - half
+  const a = latticeHeight(x0, z0, step, config)
+  const b = latticeHeight(x0 + step, z0, step, config)
+  const c = latticeHeight(x0, z0 + step, step, config)
+  const d = latticeHeight(x0 + step, z0 + step, step, config)
+  if (Math.abs(a - d) <= Math.abs(b - c)) return fz > fx ? a + (d - c) * fx + (c - a) * fz : a + (b - a) * fx + (d - b) * fz
+  return fx + fz <= 1 ? a + (b - a) * fx + (c - a) * fz : d + (c - d) * (1 - fx) + (b - d) * (1 - fz)
+}
 
 /** The 0.1 / 0.2 terrain palette, stored as linear albedo. */
 function srgb(hex: string): [number, number, number] {
@@ -91,7 +183,7 @@ export function buildChunkGeometry(
   for (let j = -1; j <= segs + 1; j += 1) {
     const z = originZ + j * step
     for (let i = -1; i <= segs + 1; i += 1) {
-      field[(j + 1) * span + (i + 1)] = landscapeHeight(originX + i * step, z, config)
+      field[(j + 1) * span + (i + 1)] = latticeHeight(originX + i * step, z, step, config)
     }
   }
   const heights = new Float32Array(verts * verts)
@@ -188,6 +280,12 @@ export function buildChunkGeometry(
     const t = (lo + hi) * 0.5
     const x = ax + (bx - ax) * t
     const z = az + (bz - az) * t
+    // A cut that lands on the lattice vertex inside the outline is that vertex: no sliver of zero area.
+    const inside = fromIn ? from : to
+    if (Math.hypot(x - positions[inside * 3]!, z - positions[inside * 3 + 2]!) < 0.02) {
+      clipAt.set(key, inside)
+      return inside
+    }
     const y = landscapeHeight(x, z, config)
     const index = gridCount + extra.length / 9
     const nx = normals[from * 3]! + (normals[to * 3]! - normals[from * 3]!) * t
@@ -200,7 +298,8 @@ export function buildChunkGeometry(
     return index
   }
   const emit = (poly: number[]) => {
-    for (let k = 1; k < poly.length - 1; k += 1) indices.push(poly[0]!, poly[k]!, poly[k + 1]!)
+    const ring = poly.filter((v, k) => v !== poly[(k + 1) % poly.length])
+    for (let k = 1; k < ring.length - 1; k += 1) indices.push(ring[0]!, ring[k]!, ring[k + 1]!)
   }
 
   for (let j = 0; j < segs; j += 1) {
@@ -367,6 +466,8 @@ const FRACTURE_DEPTH = 0.06
 const CAP_NOTCH = 0.07
 const UNDER_BED = 0.13
 const SPUR_LENGTH = 0.35
+/** Angular samples around the shell. The ground's own outline is cut at 4 m, so the lip needs to be about as fine for the two to meet. */
+export const SHELL_SEGMENTS = 1680
 /** How far inside the lip the ledge sits, and how far below the ground the face stays. */
 const CAP_METERS = 14
 const COVER_METERS = 1.5
@@ -409,8 +510,7 @@ const terrace = (value: number, thickness: number) => {
  * vertical distances use the landform scale. The lip height is the 0.3 surface
  * at that outline point, so the chunked ground meets the face.
  */
-export function buildIslandShell(config: LandscapeConfig = LANDSCAPE): BufferGeometry {
-  const segments = LANDFORM_02.tessellation?.segments ?? 560
+export function buildIslandShell(config: LandscapeConfig = LANDSCAPE, segments: number = SHELL_SEGMENTS): BufferGeometry {
   const scale = ISLAND_METERS_PER_UNIT
   const underDepth = LANDFORM_02.undersideDepth
   const angleOf = (s: number) => (2 * Math.PI * s) / segments
@@ -431,7 +531,7 @@ export function buildIslandShell(config: LandscapeConfig = LANDSCAPE): BufferGeo
   }
 
   const cliffCount = (CLIFF_ROWS + 1) * segments
-  const underCount = UNDERSIDE_RINGS * segments
+  const underCount = (UNDERSIDE_RINGS - 1) * segments
   const total = cliffCount + underCount + 1 + segments
   const positions = new Float32Array(total * 3)
   const colors = new Float32Array(total * 3)
@@ -505,8 +605,12 @@ export function buildIslandShell(config: LandscapeConfig = LANDSCAPE): BufferGeo
     )
   }
 
-  const undersideRings: number[][] = []
-  for (let ring = UNDERSIDE_RINGS; ring >= 1; ring -= 1) {
+  // The underside's outer ring IS the cliff's last row (shared vertices, so the seam is watertight and lit as one surface).
+  // Inward, the rim's own up-and-down variation fades out with the radius: at a ring 30 m across it would otherwise still swing by
+  // hundreds of meters, which draws as spikes around the keel.
+  const meanFoot = rimBottom.reduce((sum, y) => sum + y, 0) / segments
+  const undersideRings: number[][] = [cliffRows[CLIFF_ROWS]!]
+  for (let ring = UNDERSIDE_RINGS - 1; ring >= 1; ring -= 1) {
     const t = ring / UNDERSIDE_RINGS
     undersideRings.push(
       radii.map((radius, s) => {
@@ -520,14 +624,17 @@ export function buildIslandShell(config: LandscapeConfig = LANDSCAPE): BufferGeo
         const ridges = 0.45 * Math.abs(perlin2(x * 1.4 + 11.3, z * 1.4 - 4.7)) * (1 - t) ** 0.6
         const drip = 0.18 * perlin2(x * 3.2 - 2.1, z * 3.2 + 8.4) * (1 - t)
         const spur = SPUR_LENGTH * Math.max(0, perlin2(x * 4.5 + 3.3, z * 4.5 - 1.9) - 0.3) ** 1.5 * (1 - t) ** 0.4
-        const yUnit = ring === UNDERSIDE_RINGS ? rimBottom[s]! / scale : rimBottom[s]! / scale - layered - ridges + drip - spur
+        const foot = meanFoot + (rimBottom[s]! - meanFoot) * t * t
+        const yUnit = foot / scale - layered - ridges + drip - spur
         const y = yUnit * scale
         return put(x * scale, y, z * scale, rimTop[s]! - y, true)
       }),
     )
   }
-  const meanFoot = rimBottom.reduce((sum, y) => sum + y, 0) / segments
-  const keel = put(0, meanFoot - underDepth * scale - 0.2 * scale, 0, rimTop[0]! - (meanFoot - underDepth * scale), true)
+  // The keel is never above the ring around it, so the last fan cannot turn inside out.
+  const innermostY = undersideRings[UNDERSIDE_RINGS - 1]!.map((i) => positions[i * 3 + 1]!)
+  const keelY = Math.min(meanFoot - underDepth * scale - 0.2 * scale, Math.min(...innermostY) - 0.02 * scale)
+  const keel = put(0, keelY, 0, rimTop[0]! - keelY, true)
 
   const indices: number[] = []
   const lip = cliffRows[0]!

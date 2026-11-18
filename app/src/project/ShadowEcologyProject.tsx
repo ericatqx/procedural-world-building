@@ -714,7 +714,7 @@ export function ShadowEcologyProject({ tabs, about = ABOUT }: { tabs?: ReactNode
             actions={<LearnToggle label="Guide" active={guiding} onChange={setGuiding} />}
           />
           {tabs}
-          <p className="project-tag">Prototype 0.1 · light → growth → shadow → habitat</p>
+          {tabs ? null : <p className="project-tag">Prototype 0.1 · light → growth → shadow → habitat</p>}
           <ObservationPlate {...plateWorld} expanded={plateExpanded} onExpandedChange={setPlateExpanded} />
         </div>
 

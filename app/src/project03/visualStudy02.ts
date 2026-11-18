@@ -1,6 +1,9 @@
 import { useSyncExternalStore } from 'react'
 import { Color, Vector3 } from 'three'
 import { archShade } from './archGround.ts'
+import { atlasScene, atlasUniforms } from './visualStudyAtlas.ts'
+import { paintScene, paintUniforms } from './visualStudyPainting.ts'
+import { worldsScene, worldsUniforms } from './visualStudyWorlds.ts'
 import { monoUniforms } from './visualStudy03.ts'
 import { styleScalars, styleUniforms } from './visualStyle.ts'
 
@@ -24,7 +27,7 @@ import { styleScalars, styleUniforms } from './visualStyle.ts'
  * Three further modes (Sable Inspired, Painterly Ink, Illustrated World) share illustrationChunk below, which reaches every entity: terrain,
  * architecture, plants, water, creatures and the island's shell. See MODES for what distinguishes them.
  */
-export type Study02 = 'original' | 'ink' | 'inkRefined' | 'clean' | 'sable' | 'painterly' | 'illustrated' | 'mono'
+export type Study02 = 'original' | 'ink' | 'inkRefined' | 'clean' | 'sable' | 'painterly' | 'illustrated' | 'mono' | 'atlas' | 'painting' | 'stylized' | 'diorama' | 'dioramaBlack'
 
 export const STUDY02_OPTIONS: { value: Study02; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -34,10 +37,25 @@ export const STUDY02_OPTIONS: { value: Study02; label: string }[] = [
   { value: 'sable', label: 'Sable Inspired' },
   { value: 'painterly', label: 'Painterly Ink' },
   { value: 'illustrated', label: 'Illustrated World' },
+  { value: 'atlas', label: 'Illustrated Atlas' },
+  { value: 'painting', label: 'Atmospheric Painting' },
+  { value: 'stylized', label: 'Illustrated World — Stylized' },
+  { value: 'diorama', label: 'Graphic Diorama' },
+  { value: 'dioramaBlack', label: 'Graphic Diorama — Black Stage' },
 ]
 
 export const STUDY02_NOTE: Record<Study02, string> = {
-  original: 'Visual Study 02 off: the world as it is.',
+  original: 'Original: the world’s own materials and light, unstyled.',
+  stylized:
+    'Illustrated World — Stylized: island and sky as one illustration in one non-natural palette — ochre and ivory rock, dusty-rose open ground, burgundy woodland, mauve wet ground, slate-teal water — in broad, simplified regions, two tones of hour-coloured light, a spacious banded sky and a flat graphic sun.',
+  diorama:
+    'Graphic Diorama — Dark Table: the first Diorama prototype, kept unchanged for comparison. Faces toned by which way they turn, thin elevation layers and contour lines, parchment rock, terracotta cliffs, chalk shoreline, on a dark table.',
+  dioramaBlack:
+    'Graphic Diorama — Black Stage, the main visual: the island as a carved model on a black stage. Cream rock (parchment where gentle, sandstone on slopes) with three terracotta beds and the great cliff walls; olive meadow and dark-green woodland and moss from the ecology; deep teal water by depth with a fine shoreline; lilac shade that moves with the sun. Golden hour, dusk and a cool moonlit night come from the light alone; the cut edge descends through quieter strata into slate-purple.',
+  painting:
+    'Atmospheric Painting: the land lit rather than drawn. The hour colours the light (gold at morning and sunset, white at noon, moonlight at night) and the shade (blue-violet); distance turns toward the sky’s colour; leaves glow when backlit; the island floats over a luminous cloud sea. No lines.',
+  atlas:
+    'Illustrated Atlas: the island as an illustrated relief map on warm paper. Sage meadows, moss woodland, sandstone and slate rock, mineral-blue water, warm off-white architecture; shaded relief from the sun and a fixed map light; selective coloured line: contours on the mountains, slope marks on steep shaded rock, woodland edges, depth lines in the water, sepia outlines on the architecture.',
   mono: 'Living Monochrome: a sculptural near-monochrome island under a pale sky; colour only in cobalt water and in the yellow-green life that grows where the structures keep persistent shade. Moving shadows stay neutral charcoal.',
   ink: 'Clear Ink: clear colour regions, two-state cel light with cool flat shadows, fine contour and shadow-edge lines; persistent shade drawn as a cross-hatched ink wash. Terrain and architecture only.',
   inkRefined:
@@ -122,12 +140,26 @@ export const illustrationUniforms: Record<string, { value: number | Color | Vect
 let current: Study02 = 'original'
 const listeners = new Set<() => void>()
 
+/** The study shown now (so a page that borrows the switch can give back exactly what it found). */
+export const study02Now = (): Study02 => current
+
 export function setStudy02(next: Study02) {
   const was = current
   current = next
   study02Uniforms.uInkOn.value = next === 'ink' ? 1 : 0
   const u = illustrationUniforms
-  const mode = next === 'original' || next === 'ink' || next === 'mono' ? null : MODES[next]
+  const mode = next === 'original' || next === 'ink' || next === 'mono' || next === 'atlas' || next === 'painting' || next === 'stylized' || next === 'diorama' || next === 'dioramaBlack' ? null : MODES[next]
+  // The Illustrated Atlas (visualStudyAtlas.ts): its own finish, its paper background and haze.
+  atlasUniforms.uAtlasOn.value = next === 'atlas' ? 1 : 0
+  atlasScene.on = next === 'atlas'
+  paintUniforms.uPaintOn.value = next === 'painting' ? 1 : 0
+  paintScene.on = next === 'painting'
+  worldsUniforms.uIwOn.value = next === 'stylized' ? 1 : 0
+  // 1: the Diorama on its dark table (prototype 01, unchanged); 2: the Black Stage, with refinement 01 (visualStudyWorlds.ts, dioramaStage).
+  worldsUniforms.uDioOn.value = next === 'diorama' ? 1 : next === 'dioramaBlack' ? 2 : 0
+  worldsScene.stylized = next === 'stylized'
+  worldsScene.diorama = next === 'diorama'
+  worldsScene.dioramaBlack = next === 'dioramaBlack'
   // Visual Study 03 (visualStudy03.ts) shares this one state, so every study stays mutually exclusive.
   monoUniforms.uMonoOn.value = next === 'mono' ? 1 : 0
   u.uIlOn.value = mode ? 1 : 0
@@ -146,9 +178,12 @@ export function setStudy02(next: Study02) {
   }
   // The air: clearer while on; returned to the presets' rest values when switched off (the presets are at Original whenever this is on).
   // (Living Monochrome keeps the world's own air and black field.)
-  if (next === 'ink' || mode) {
-    styleScalars.fog = mode ? mode.fog : 1.6
-    styleUniforms.uStyMist.value = mode ? mode.mist : 0.45
+  if (next === 'ink' || next === 'atlas' || next === 'painting' || next === 'stylized' || next === 'diorama' || next === 'dioramaBlack' || mode) {
+    // (The studies with their own air keep the scene's haze far off: theirs is in their colour.)
+    const far: Partial<Record<Study02, number>> = { atlas: 1.35, painting: 2.4, stylized: 2.4, diorama: 3, dioramaBlack: 3 }
+    const mist: Partial<Record<Study02, number>> = { atlas: 0.3, painting: 0.2, stylized: 0.15, diorama: 0.1, dioramaBlack: 0.1 }
+    styleScalars.fog = mode ? mode.fog : far[next] ?? 1.6
+    styleUniforms.uStyMist.value = mode ? mode.mist : mist[next] ?? 0.45
   } else if (was !== 'original') {
     styleScalars.fog = 1
     styleUniforms.uStyMist.value = 1
@@ -246,22 +281,33 @@ export function study02Chunk(kind: 'terrain' | 'architecture' | 'other', world: 
       vec3 inkAll = (reflectedLight.directDiffuse + reflectedLight.indirectDiffuse) / inkAlb;
       vec3 inkOther = max(vec3(0.0), inkAll - inkKey * max(inkNdl, 0.0) * inkVis);
       // Two states, with a narrow edge: lit (faces the sun and the sun reaches it) or not.
-      float inkLit = smoothstep(0.0, 0.1, inkNdl) * smoothstep(0.35, 0.65, inkVis);
+      // (Terrain: the terminator a little wider, so a slope turning from the sun passes through a half-tone instead of switching at a line. Cast-shadow edges stay crisp.)
+      float inkLit = smoothstep(${arch ? '0.0, 0.1' : '-0.02, 0.2'}, inkNdl) * smoothstep(0.35, 0.65, inkVis);
       // Persistent shade, its raster cells broken by noise into a ragged, brushed edge.
       float inkSh = 0.0;
       vec2 inkU = (inkP.xz + 2048.0) / 4096.0;
       if (inkU.x > 0.0 && inkU.y > 0.0 && inkU.x < 1.0 && inkU.y < 1.0) inkSh = texture2D(uInkShade, inkU).r;
       inkSh = smoothstep(0.2, 0.5, inkSh + (styNoise(inkP.xz * 0.3) - 0.5) * 0.28 + (styNoise(inkP.xz * 1.3 + 5.0) - 0.5) * 0.08);
-      ${arch ? 'inkSh *= 1.0 - smoothstep(-0.2, 0.45, inkWn.y);' : ''}
+      ${arch ? 'inkSh *= 1.0 - smoothstep(-0.2, 0.45, inkWn.y);' : '// Terrain: persistent shade is an ecological condition, not a wash on the ground. The deep ink-blue wash is kept for structure faces only;\n      // the ground keeps its own colours, and its real-time cast shadows are drawn as everywhere else.\n      inkSh = 0.0;'}
       // Colour and the two light states. The lit plateau keeps a little modelling; shadow is about half the value and shifted cool.
       vec3 inkC = inkClarify(inkAlb);
-      vec3 inkLitE = (inkOther + inkKey * (${arch ? '0.5 + 0.5' : '0.72 + 0.28'} * clamp(inkNdl * 1.8, 0.0, 1.0))) * 1.08;
+      vec3 inkLitE = (inkOther + inkKey * (${arch ? '0.5 + 0.5' : '0.66 + 0.34'} * clamp(inkNdl * ${arch ? '1.8' : '1.5'}, 0.0, 1.0))) * 1.08;
       float inkLitV = dot(inkLitE, INK_LUMA);
       // Shadow: about half the lit value, lit by the sky alone and shifted cool.
-      vec3 inkShdE = inkOther / max(1e-4, dot(inkOther, INK_LUMA)) * mix(0.42 * inkLitV, dot(inkOther, INK_LUMA), 0.25) * vec3(0.78, 0.88, 1.16);
+      // (Terrain: the shadow keeps the form. Faces turned only a little from the sun, and those open to the sky, sit a step lighter than faces turned fully away,
+      // so a large shaded mountainside reads as a modelled mass in the same cool charcoal, not one flat near-black plane.)
+      vec3 inkShdE = inkOther / max(1e-4, dot(inkOther, INK_LUMA)) * mix(${arch ? '0.42 * inkLitV' : '0.5 * inkLitV * (0.8 + 0.28 * smoothstep(-0.75, 0.05, inkNdl)) * (0.92 + 0.16 * inkWn.y)'}, dot(inkOther, INK_LUMA), 0.25) * vec3(0.78, 0.88, 1.16);
       float inkWash = 0.95 + 0.1 * styNoise(inkP.xz * 0.045 + inkP.y * 0.03);
       vec3 inkLitC = inkC * inkLitE * inkWash;
-      vec3 inkShdC = inkC * inkShdE;
+      // (Terrain: a slow, broad wash of tone through the shadow, about fifty metres across, fixed to the ground: variation within a dark face, stable as the camera moves.)
+      vec3 inkShdC = inkC * inkShdE${arch ? '' : ' * (0.9 + 0.2 * styNoise(inkP.xz * 0.018 + inkP.y * 0.025))'};
+      ${arch
+        ? `// (Architecture: the off-white stone given its planes, tops a step lighter than the walls and the two wall orientations a step apart, its lit value
+      // held below white and a little warm, so a structure reads as a carved volume rather than a blown-out shape.)
+      float inkFace = mix(mix(0.8, 0.92, step(abs(inkWn.z), abs(inkWn.x))), 1.0, smoothstep(0.55, 0.85, inkWn.y));
+      inkLitC *= inkFace * vec3(1.0, 0.97, 0.92) * 0.86;
+      inkShdC *= mix(inkFace, 1.0, 0.5);`
+        : ''}
       vec3 inkCol = mix(inkShdC, inkLitC, inkLit);
       // Strokes on the surface: on the land down the slope, on the stone along the face's own plane, so they stay put as the camera moves.
       vec2 inkPlane;
@@ -289,16 +335,98 @@ export function study02Chunk(kind: 'terrain' | 'architecture' | 'other', world: 
       float inkHand = 0.65 + 0.35 * smoothstep(0.25, 0.6, styNoise(inkP.xz * 0.22 + inkP.y * 0.31));
       // Silhouette: where the form turns away from the eye.
       float inkNdv = abs(dot(inkN, normalize(vViewPosition)));
-      inkLine = max(inkLine, (1.0 - smoothstep(1.0, 2.6, inkNdv / max(fwidth(inkNdv), 1e-5))) * ${arch ? '1.0' : '0.6'});
+      inkLine = max(inkLine, (1.0 - smoothstep(1.0, 2.6, inkNdv / max(fwidth(inkNdv), 1e-5))) * ${arch ? '0.72' : '0.6'});
       // Creases: where the surface folds sharply between neighbouring pixels.
       float inkCrease = length(fwidth(inkWn));
-      inkLine = max(inkLine, smoothstep(${arch ? '0.14, 0.42' : '0.22, 0.6'}, inkCrease) * ${arch ? '0.9' : '0.5 * (1.0 - smoothstep(300.0, 900.0, inkDist))'});
+      inkLine = max(inkLine, smoothstep(${arch ? '0.14, 0.42' : '0.22, 0.6'}, inkCrease) * ${arch ? '0.55' : '0.5 * (1.0 - smoothstep(300.0, 900.0, inkDist))'});
       // The edge of the sun's light: a broken ink line along cast-shadow and terminator edges.
       float inkEdge = abs(inkLit - 0.5) / max(fwidth(inkLit), 1e-4);
       inkLine = max(inkLine, (1.0 - smoothstep(0.8, 2.0, inkEdge)) * step(0.02, fwidth(inkLit)) * 0.75 * smoothstep(0.35, 0.55, styNoise(inkPlane * 0.6)));
-      inkCol = mix(inkCol, INK_LINE * (0.6 + 0.4 * inkLitV), clamp(inkLine * inkHand, 0.0, 1.0));
+      // (Architecture: its lines a warm umber ink, lighter than the land's, so they define the structure without a heavy black outline.)
+      vec3 inkLineC = ${arch ? 'mix(INK_LINE, vec3(0.085, 0.06, 0.045), 0.6)' : 'INK_LINE'};
+      inkCol = mix(inkCol, inkLineC * (0.6 + 0.4 * inkLitV), clamp(inkLine * inkHand, 0.0, 1.0));
       outgoingLight = inkCol + totalEmissiveRadiance;
     }`
+}
+
+/** Clear Ink's light, for the surfaces that are not land or stone: the sun's share separated from the rest, and the two states. */
+const INK_LIGHT = /* glsl */ `
+      vec3 inkAlb = max(diffuseColor.rgb, vec3(1e-4));
+      vec3 inkN = normalize(normal);
+      float inkNdl = 0.0;
+      vec3 inkKey = vec3(0.0);
+      #if NUM_DIR_LIGHTS > 0
+        inkNdl = dot(inkN, directionalLights[0].direction);
+        inkKey = directionalLights[0].color * RECIPROCAL_PI;
+      #endif
+      float inkVis = 1.0;
+      #if defined(USE_SHADOWMAP) && NUM_DIR_LIGHT_SHADOWS > 0
+      {
+        DirectionalLightShadow inkDs = directionalLightShadows[0];
+        inkVis = getShadow(directionalShadowMap[0], inkDs.shadowMapSize, inkDs.shadowIntensity, inkDs.shadowBias, inkDs.shadowRadius, vDirectionalShadowCoord[0]);
+      }
+      #endif
+      vec3 inkAll = (reflectedLight.directDiffuse + reflectedLight.indirectDiffuse) / inkAlb;
+      vec3 inkOther = max(vec3(0.0), inkAll - inkKey * max(inkNdl, 0.0) * inkVis);
+      float inkSunVis = smoothstep(0.35, 0.65, inkVis);`
+
+/**
+ * Clear Ink for water and plants, which the land's finish does not draw: the same two light states (lit, and a cool, flat shadow about half its value)
+ * and the same clarified colour, so lakes, rivers and leaves belong to the painted landscape rather than to a 3D renderer.
+ *
+ *   water    cobalt kept, but laid in three tonal regions by depth (a lighter shallow band, the body, the deep) with soft steps between, a slow broad
+ *            variation of tone fixed to the water (no animation of its own), a pale shore band and a fine ink line at the waterline like the land's,
+ *            the sun's glints kept small and few; the sky's reflection and glare of the 3D water are not drawn
+ *   plants   their own colour clarified as the land's is, lit or in a cool flat shadow by the sun's shadow (not by each leaf's facing, which would speckle)
+ */
+export function study02Extra(kind: string, hasDepth: boolean, world: string | null): string {
+  if (kind === 'water') {
+    return `
+    if (uInkOn > 0.5) {
+      ${INK_LIGHT}
+      float inkD = ${hasDepth ? 'vWaterDepth' : '0.7'};
+      vec3 inkP = ${world ?? 'vec3(0.0)'};
+      // Three tonal regions by depth, soft-stepped.
+      vec3 inkW = mix(uShallow, uMid, smoothstep(0.3, 1.6, inkD));
+      inkW = mix(inkW, uDeep, smoothstep(2.5, 7.0, inkD) * 0.7);
+      // Broad, slow variation of tone, fixed to the water: the body is laid in washes (one broad, one drawn out along the water like a brushed wash),
+      // not one flat colour.
+      inkW *= 0.88 + 0.16 * styNoise(inkP.xz / 90.0 + 3.0) + 0.08 * styNoise(vec2(inkP.x / 140.0, inkP.z / 30.0) + 7.0);
+      // Clarified less than the land: cobalt is already saturated, and pushed further it reads as an electric flat blue.
+      vec3 inkC = mix(inkW, inkClarify(inkW), 0.35);
+      vec3 inkLitE = (inkOther + inkKey * 0.85) * 1.05;
+      float inkLitV = dot(inkLitE, INK_LUMA);
+      vec3 inkShdE = inkOther / max(1e-4, dot(inkOther, INK_LUMA)) * mix(0.5 * inkLitV, dot(inkOther, INK_LUMA), 0.3) * vec3(0.8, 0.9, 1.12);
+      vec3 inkCol = inkC * mix(inkShdE, inkLitE, inkSunVis);
+      // The water stays readable by night and in shade (as the 3D water did), a little of its own colour.
+      inkCol += inkC * 0.18 * uLit;
+      ${hasDepth
+        ? `// The shore: a pale band in the first decimetres, and a fine ink line at the waterline like the land's own lines.
+      float inkFw = max(fwidth(inkD), 1e-4);
+      inkCol = mix(inkCol, inkClarify(uLine) * inkLitV * 0.9, (1.0 - smoothstep(0.0, max(0.3, inkFw * 3.0), inkD)) * 0.45);
+      inkCol = mix(inkCol, INK_LINE * (0.6 + 0.4 * inkLitV), (1.0 - smoothstep(0.6, 1.6, abs(inkD - 0.03) / inkFw)) * 0.45);`
+        : ''}
+      // Glints: only the brightest of the 3D water's own, small and pale, a painted highlight rather than glare.
+      float inkGlint = smoothstep(0.85, 1.25, dot(outgoingLight, INK_LUMA)) * inkSunVis;
+      inkCol = mix(inkCol, uGlint * inkLitV * 0.9, inkGlint * 0.4);
+      outgoingLight = inkCol;
+    }`
+  }
+  if (kind === 'plant') {
+    return `
+    if (uInkOn > 0.5) {
+      ${INK_LIGHT}
+      // A leaf's own colour clarified like the land's, a little deeper so the plants sit in the ground's greens; lit or in a cool flat shadow by the
+      // sun's shadow, with only a gentle step for leaves turned from the sun.
+      vec3 inkC = inkClarify(inkAlb) * vec3(0.92, 0.97, 0.9);
+      float inkFace = mix(0.72, 1.0, smoothstep(-0.25, 0.35, inkNdl));
+      vec3 inkLitE = (inkOther + inkKey * 0.8 * inkFace) * 1.05;
+      float inkLitV = dot(inkLitE, INK_LUMA);
+      vec3 inkShdE = inkOther / max(1e-4, dot(inkOther, INK_LUMA)) * mix(0.45 * inkLitV, dot(inkOther, INK_LUMA), 0.3) * vec3(0.78, 0.88, 1.16);
+      outgoingLight = inkC * mix(inkShdE, inkLitE, inkSunVis);
+    }`
+  }
+  return ''
 }
 
 export type IlKind = 'terrain' | 'architecture' | 'plant' | 'water' | 'creature' | 'shell'

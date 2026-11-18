@@ -251,7 +251,7 @@ export function createLoftDepthMaterial(loft: Record<string, { value: unknown }>
  */
 export function createGrownMaterial(age: { value: number } = livingAge, pick: { value: number } = { value: 0 }, dissolve: { value: number } = { value: 2 }, grow: { value: number } = { value: 0 }) {
   const material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, side: DoubleSide })
-  material.customProgramCacheKey = () => 'living-architecture-grown2'
+  material.customProgramCacheKey = () => 'living-architecture-grown2-strata'
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uRain = wetness
     shader.uniforms.uAge = age
@@ -302,53 +302,81 @@ void main() {
     float mot = gvn(vGW * 0.45) * 0.6 + gvn(vGW * 1.7) * 0.4;
     float age = 1.0 - gBirth;
     vec3 base = diffuseColor.rgb;
+    // FUNCTIONAL PALETTE. Linear albedo, kept in the terrain's own range (0.25 to 0.5): the key light is strong and the tone mapping compresses it, so a pale
+    // albedo reads as white and every difference between the parts is lost. The stone stands a little lighter than the ground, and the parts differ in hue as
+    // well as value. Birth runs with height, so: the grounded base (first to arrive) is warm, weathered taupe-gray; the structure above it denser, cooler gray; the
+    // shelves and upper growth (last to arrive) limestone, lighter where they face up and are exposed; the supports (the tissue carrying the most load) cool mineral gray.
+    vec3 tone = mix(vec3(0.31, 0.265, 0.225), vec3(0.285, 0.305, 0.325), smoothstep(0.05, 0.38, gBirth));
+    tone = mix(tone, vec3(0.57, 0.535, 0.45), smoothstep(0.38, 0.85, gBirth) * (0.5 + 0.5 * gUp));
+    tone = mix(tone, vec3(0.27, 0.29, 0.315), smoothstep(0.15, 0.3, gStress) * 0.75);
+    tone *= 0.88 + 0.24 * gLight * (0.4 + 0.6 * gUp);
+    tone *= 0.92 + 0.16 * mot;
+    base = mix(base, tone, 0.92);
+    // Recesses and the undersides of the overhangs: the less light they get, the darker and the warmer and more weathered, never black.
+    base *= 0.82 + 0.18 * smoothstep(0.05, 0.6, gLight);
+    // In shadow the stone is cool mineral gray (the lit faces are the warm limestone and ivory).
+    base = mix(base, base * vec3(0.9, 0.96, 1.06), (1.0 - smoothstep(0.1, 0.55, gLight)) * 0.45);
     // Lifecycle: how fresh this tissue is, the growth front, and whether it is about to recede or has just been exposed.
     float gSince = uAge - vLife.x;
-    float gFresh = 1.0 - smoothstep(0.0, 0.12, gSince);
+    // Young tissue is only a little warmer and paler than the mature stone, and the change takes a long span of age: no white start.
+    float gFresh = 1.0 - smoothstep(0.0, 0.3, gSince);
     float gFront = (1.0 - smoothstep(0.0, 0.02, abs(gSince))) * step(0.0005, vLife.x);
     float gDying = smoothstep(vLife.y - 0.1, vLife.y, uAge) * (1.0 - smoothstep(vLife.y, vLife.y + 0.04, uAge));
     float gExposed = step(vLife.y, uAge) * (1.0 - smoothstep(vLife.y + 0.04, vLife.y + 0.14, uAge));
-    // Growth rings: the contours of birth time.
-    float rings = gBirth * 30.0 + (mot - 0.5) * 0.4;
+    // Broad mineral strata: a few horizontal beds of birth (height), warped only at a geological scale.
+    float rings = gBirth * 6.5 + (gvn(vGW * vec3(0.045, 0.015, 0.045)) - 0.5) * 0.32;
     float rf = fract(rings);
     // Where the contours crowd together (steep growth gradients) they would alias: fade them out there.
     float ringKeep = 1.0 - smoothstep(0.35, 0.9, fwidth(rings));
     // Young tissue has not laid its rings down yet.
     ringKeep *= 1.0 - 0.85 * gFresh;
-    float seamLine = (1.0 - smoothstep(0.0, 0.09, rf)) * ringKeep;
-    float ramp = 0.93 + 0.11 * rf;
-    gBump = 0.1 * ringKeep * rf * rf * (1.0 - smoothstep(0.88, 1.0, rf)) * (0.4 + 0.6 * smoothstep(0.05, 0.4, gDep));
+    float seamLine = (1.0 - smoothstep(0.0, 0.11, rf)) * ringKeep;
+    float ramp = 0.9 + 0.13 * rf;
+    gBump = 0.052 * ringKeep * rf * rf * (1.0 - smoothstep(0.88, 1.0, rf)) * (0.4 + 0.6 * smoothstep(0.05, 0.4, gDep));
     // Age and bleaching.
-    base = mix(base * 1.05, base * vec3(0.92, 0.92, 0.9), smoothstep(0.1, 0.95, age + (mot - 0.5) * 0.3));
+    base = mix(base, base * vec3(0.95, 0.95, 0.93), smoothstep(0.1, 0.95, age + (mot - 0.5) * 0.3));
     float bleach = gUp * smoothstep(0.35, 0.9, gLight) * smoothstep(0.2, 0.9, age);
     float luma = dot(base, vec3(0.3333));
-    base = mix(base, vec3(luma * 1.07 + 0.01), bleach * 0.45);
+    base = mix(base, vec3(luma * 1.04), bleach * 0.12);
     // Vitality: chalky as it falls, charcoal as it fails.
     base = mix(base, vec3(luma * 0.8 + 0.02), smoothstep(0.62, 0.2, gVital) * 0.6);
     base = mix(base, vec3(0.34, 0.32, 0.29), smoothstep(0.3, 0.05, gVital) * 0.55);
-    // Stress: warm tint and hairline cracks.
+    // Stress: a warm tint, and a few broad cracks only where the tissue is old and loaded. Not a uniform crack field.
     float st = smoothstep(0.18, 0.6, gStress);
     base = mix(base, base * vec3(1.0, 0.86, 0.72), st * 0.55);
-    float cf = gvn(vGW * vec3(1.1, 0.5, 1.1) + gUnit * 9.0);
-    float crack = (1.0 - smoothstep(0.0, 0.035, abs(cf - 0.5))) * smoothstep(0.25, 0.7, gStress);
-    base *= 1.0 - crack * 0.35;
+    float cf = gvn(vGW * vec3(0.16, 0.08, 0.16) + gUnit * 1.4);
+    float crackGate = smoothstep(0.64, 0.82, gvn(vGW * 0.04 + gUnit));
+    float crack = (1.0 - smoothstep(0.0, 0.09, abs(cf - 0.5))) * smoothstep(0.5, 0.9, gStress) * smoothstep(0.4, 0.85, age) * crackGate;
+    base *= 1.0 - crack * 0.06;
     base *= 1.0 + gSeam * 0.05;
     // Moisture and rain.
     base = mix(base, base * vec3(0.78, 0.82, 0.76), gWet * 0.55);
-    float streak = smoothstep(0.5, 0.85, gvn(vGW * vec3(2.2, 0.28, 2.2) + gUnit * 5.0));
-    base *= 1.0 - gSide * streak * (0.1 + 0.14 * smoothstep(0.2, 0.9, age)) * (0.4 + 0.6 * gLight);
+    float streak = smoothstep(0.58, 0.9, gvn(vGW * vec3(0.11, 0.03, 0.11) + gUnit));
+    base *= 1.0 - gSide * streak * (0.08 + 0.11 * smoothstep(0.35, 0.95, age)) * (0.35 + 0.65 * gLight);
     base *= 0.96 + 0.08 * gUnit;
-    base *= ramp * (1.0 - seamLine * 0.2);
-    base *= 0.95 + 0.1 * gvn(vGW * 5.0);
+    // A slow mineral mottling, warm and cool, coarser than a crack. The beds sit on top of it.
+    float mineral = gvn(vGW * vec3(0.04, 0.018, 0.04));
+    base *= 0.88 + 0.2 * mineral;
+    base = mix(base, base * vec3(1.06, 0.98, 0.9), (gvn(vGW * 0.085) - 0.5) * 0.55);
+    base = mix(base * vec3(0.93, 0.92, 0.88), base, smoothstep(0.12, 0.82, gBirth));
+    base *= (0.97 + 0.03 * rf) * (1.0 - seamLine * 0.06);
     base *= 1.0 - 0.1 * uRain * (0.5 + 0.5 * gUp);
     // Young: paler, warmer, smoother, the front a little brighter. Dying: chalky and dull. Just exposed: darker, damper.
     float gLuma = dot(base, vec3(0.3333));
-    base = mix(base, vec3(0.93, 0.9, 0.8) * (0.9 + 0.1 * mot), gFresh * 0.55);
+    base = mix(base, base * vec3(1.1, 1.05, 0.92) + vec3(0.02, 0.015, 0.0), gFresh * 0.4);
     base *= 1.0 + 0.12 * gFront;
-    base = mix(base, vec3(gLuma * 1.12 + 0.03), gDying * 0.7);
+    base = mix(base, vec3(gLuma * 1.04 + 0.01), gDying * 0.3);
     base = mix(base, base * vec3(0.72, 0.74, 0.7), gExposed * 0.6);
-    // Selected: a little lighter and warmer, so it reads apart from its neighbours (and from what it has fused with).
-    base = mix(base, base * 1.22 + vec3(0.05, 0.035, 0.0), uPick * 0.7);
+    // Sedimentary strata, irregular: thick beds (about nine metres) and thin ones (about three) from smooth noise of height, the height warped across the body so
+    // the beds tilt and undulate and do not run level, each bed a slightly different tone and warmth. Soft-edged, with no dark line between them.
+    float strWarp = (gvn(vec3(vGW.x * 0.02, vGW.y * 0.03, vGW.z * 0.02)) - 0.5) * 7.0;
+    float strH = vGW.y + strWarp;
+    float strThick = smoothstep(0.38, 0.62, gvn(vec3(7.3, strH * 0.11, 2.1)));
+    float strThin = smoothstep(0.44, 0.56, gvn(vec3(3.9, strH * 0.33, 8.4)));
+    base *= 0.9 + 0.13 * strThick + 0.05 * strThin;
+    base = mix(base, base * vec3(1.07, 1.0, 0.9), strThick * 0.45);
+    // Selected: a faint lift only (the organism's marker on screen says which one it is).
+    base = mix(base, base * 1.05 + vec3(0.008, 0.006, 0.0), uPick * 0.6);
     diffuseColor.rgb = base;
     // Where the growth front has cut the shell open, the inside seen through it reads as the section of solid tissue.
     if (uGrow > 0.5 && !gl_FrontFacing) diffuseColor.rgb = vec3(0.6, 0.55, 0.47);

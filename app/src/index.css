@@ -20,6 +20,15 @@
   /* Mono annotations: panel and inset headers, captions, keys, summaries, states. */
   --text-micro: 0.6rem;
 
+  /*
+   * Site scale (the /preview website only): the same roles, set for pages that are read rather than operated.
+   * Hero is the display face at landing-page size; headline the display face for a page title; lead is introductory prose.
+   */
+  --text-hero: clamp(3.4rem, 9vw, 9.5rem);
+  --text-headline: clamp(2.4rem, 5.6vw, 5.6rem);
+  --text-lead: clamp(1rem, 1.2vw, 1.18rem);
+  --text-prose: 0.94rem;
+
   /* Letter spacing. Uppercase text uses caps, or caps-wide for headers that name a region. */
   --track-display: -0.01em;
   --track-data: 0.04em;

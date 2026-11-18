@@ -123,16 +123,34 @@ const hash3 = (x: number, y: number, z: number) => {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296
 }
 export const vnoise = (x: number, y: number, z: number) => {
+  // The same value as the closure form (lerp of lerps of hashes), written flat: it is called millions of times per organism.
   const i = Math.floor(x)
   const j = Math.floor(y)
   const k = Math.floor(z)
-  const f = (t: number) => t * t * (3 - 2 * t)
-  const fx = f(x - i)
-  const fy = f(y - j)
-  const fz = f(z - k)
-  const a = (jj: number, kk: number) => lerp(hash3(i, jj, kk), hash3(i + 1, jj, kk), fx)
-  const b = (kk: number) => lerp(a(j, kk), a(j + 1, kk), fy)
-  return lerp(b(k), b(k + 1), fz)
+  const tx = x - i
+  const ty = y - j
+  const tz = z - k
+  const fx = tx * tx * (3 - 2 * tx)
+  const fy = ty * ty * (3 - 2 * ty)
+  const fz = tz * tz * (3 - 2 * tz)
+  const i1 = i + 1
+  const j1 = j + 1
+  const k1 = k + 1
+  const a00 = hash3(i, j, k)
+  const a10 = hash3(i1, j, k)
+  const a01 = hash3(i, j1, k)
+  const a11 = hash3(i1, j1, k)
+  const b0 = a00 + (a10 - a00) * fx
+  const b1 = a01 + (a11 - a01) * fx
+  const c0 = b0 + (b1 - b0) * fy
+  const a02 = hash3(i, j, k1)
+  const a12 = hash3(i1, j, k1)
+  const a03 = hash3(i, j1, k1)
+  const a13 = hash3(i1, j1, k1)
+  const d0 = a02 + (a12 - a02) * fx
+  const d1 = a03 + (a13 - a03) * fx
+  const c1 = d0 + (d1 - d0) * fy
+  return c0 + (c1 - c0) * fz
 }
 
 /** A frame whose first axis is u and whose second is as near to `up` as it can be. */

@@ -311,10 +311,18 @@ export function setTerrainSeed(seed: number): void {
  * Lowers the ground along the world's rivers. The world sets it once its rivers
  * exist; they are traced on the uncut ground, so it is cleared with the seed.
  */
-export type TerrainCarve = (x: number, z: number, height: number) => number
+export type TerrainCarve = ((x: number, z: number, height: number) => number) & {
+  /** The nearest point on a river's centre line within `reach` metres (x, z, the channel's half-width there), or null (Round 07: terrainMesh.ts). */
+  channel?: (x: number, z: number, reach: number) => { x: number; z: number; halfWidth: number } | null
+}
 let carve: TerrainCarve | null = null
 export function setTerrainCarve(next: TerrainCarve | null): void {
   carve = next
+}
+
+/** The nearest river centre-line point within `reach` of (x, z), from the current carve; null where there is none. */
+export function terrainChannel(x: number, z: number, reach: number): { x: number; z: number; halfWidth: number } | null {
+  return carve?.channel ? carve.channel(x, z, reach) : null
 }
 
 /** Fractal sum of simplex noise, about [-1, 1]. */
@@ -446,6 +454,19 @@ export function terrainLayerSignal(id: string, x: number, z: number, config: Lan
   return Math.max(-1, Math.min(1, parts.detail / (DETAIL.amplitude * DETAIL.weight)))
 }
 
+/**
+ * The height at a point taken apart, in metres, in the order the layers are summed (read only: the same evaluation as landscapeHeight, the
+ * carve of the rivers left out). base + massifs + ridges + hills + drainage + grain = the height. Ridges and drainage are mostly negative: they cut.
+ */
+export function terrainBreakdown(x: number, z: number, config: LandscapeConfig = LANDSCAPE): { base: number; massifs: number; ridges: number; hills: number; drainage: number; grain: number } {
+  evaluate(x, z, config)
+  const ridgeShare = RIDGES.weight * (0.6 + 0.4 * smoothstep(70, 230, parts.mass))
+  const relief = parts.mass * (1 - ridgeShare + ridgeShare * parts.ridge)
+  const rest = parts.height - (relief + parts.hills + parts.detail - parts.drain)
+  // (What is left once the five are counted: the basement, the basins and the rim's erosion, with the small coupling of hills and drainage to basin floors.)
+  return { base: rest, massifs: parts.mass, ridges: relief - parts.mass, hills: parts.hills, drainage: -parts.drain, grain: parts.detail }
+}
+
 /** Grayscale source for one layer. Points off the island are black. */
 export function terrainLayerPreview(id: string, resolution = 48, config: LandscapeConfig = LANDSCAPE): Float32Array {
   const values = new Float32Array(resolution * resolution)
@@ -490,19 +511,41 @@ export const SHAPING_LABEL: Record<ShapingType, string> = {
 
 export type CameraPose = { position: [number, number, number]; target: [number, number, number] }
 
+/** The overview's usual heading: from the north-west. */
+export const OVERVIEW_HEADING = Math.atan2(9.5, 15) + Math.PI
+
+/**
+ * How the overview frames the island. A camera choice only: the land is the same however it is framed. The defaults are the
+ * project's own view; a page may set its own (the /preview website frames Home and Explore for their layouts).
+ *   height   the camera's height above the aim, as a share of the field (the distance follows at the same angle)
+ *   heading  a fixed side to look from, or null to keep the side the camera is already on (orbiting, then asking for the overview)
+ *   across   moves the aim to the camera's left (+) or right (−), in meters: the island moves the other way across the screen
+ *   toward   moves the aim toward the camera (+) or away (−), in meters: the island moves up (+) or down (−) on the screen
+ *   shiftX, shiftY  a lens shift, as shares of the picture's width and height (+ moves the picture right / down): the composition moves while the
+ *            camera still aims at, and orbits about, the island's own centre. Eased in and out by the camera rig; not applied while walking or
+ *            under a creature camera.
+ *   glide    how long the camera takes to glide to the overview, in seconds (null: the camera rig's usual)
+ */
+export const overviewFraming: { height: number; heading: number | null; across: number; toward: number; shiftX: number; shiftY: number; glide: number | null } = { height: 0.6, heading: null, across: 0, toward: 0, shiftX: 0, shiftY: 0, glide: null }
+
 /**
  * Three-quarter view, 37° below the horizon, from the north-west, aimed at
  * the ground. Orbit turns around this ground point.
  */
-export function overviewPose(x = 0, z = 0, config: LandscapeConfig = LANDSCAPE, heading = Math.atan2(9.5, 15) + Math.PI): CameraPose {
+export function overviewPose(x = 0, z = 0, config: LandscapeConfig = LANDSCAPE, heading = OVERVIEW_HEADING): CameraPose {
+  const frame = overviewFraming
+  const h = frame.heading ?? heading
   const depression = (37 * Math.PI) / 180
   const polar = Math.PI / 2 - depression
-  const height = config.size * 0.6
+  const height = config.size * frame.height
+  // The camera looks along −(sin h, cos h); its left is (−cos h, sin h), and toward it is (sin h, cos h).
+  const ax = x - Math.cos(h) * frame.across + Math.sin(h) * frame.toward
+  const az = z + Math.sin(h) * frame.across + Math.cos(h) * frame.toward
   const ground = landscapeHeight(x, z, config)
   const back = height * Math.tan(polar)
   return {
-    position: [x + Math.sin(heading) * back, ground + height, z + Math.cos(heading) * back],
-    target: [x, ground, z],
+    position: [ax + Math.sin(h) * back, ground + height, az + Math.cos(h) * back],
+    target: [ax, ground, az],
   }
 }
 

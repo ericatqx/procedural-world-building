@@ -53,6 +53,10 @@
   margin-top: 2px;
 }
 
+.project03 .eco-ends span:nth-child(2):not(:last-child) {
+  text-align: center;
+}
+
 .project03 .eco-playback {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -203,4 +207,687 @@
 .project03 .organism-card-row dd {
   margin: 0;
   color: var(--ui-title);
+}
+
+/* Vegetation panel: the map choices wrap in a grid, never clipped; legends wrap. */
+.veg-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+  gap: 6px;
+}
+
+.veg-mode {
+  min-width: 0;
+  padding: 6px 4px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-label);
+  cursor: pointer;
+}
+
+.veg-mode:hover {
+  color: var(--ui-title);
+}
+
+.veg-mode[aria-pressed='true'] {
+  border-color: var(--ui-title);
+  color: var(--ui-title);
+}
+
+.veg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--ui-muted);
+  font-size: var(--text-label);
+}
+
+.veg-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.veg-legend i,
+.veg-counts i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+}
+
+.veg-counts p,
+.veg-here p {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.veg-counts i {
+  margin-right: 6px;
+}
+
+/* The creature card: lower left, while a creature camera is on. */
+.project03 .creature-card {
+  position: absolute;
+  left: 14px;
+  bottom: 18px;
+  z-index: 3;
+  width: min(300px, calc(100% - 28px));
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 11px 10px;
+  border: 1px solid var(--rule);
+  background: rgba(7, 8, 10, 0.84);
+  pointer-events: auto;
+}
+
+.project03 .creature-card .creature-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ui-title);
+}
+
+.project03 .creature-card .creature-card-state {
+  margin: 0;
+  color: var(--ui-title);
+  font-size: var(--text-label);
+}
+
+.project03 .creature-card p {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: var(--text-label);
+  line-height: 1.4;
+}
+
+/* ─── The panel's information architecture (Navigate · World time · Creatures, then World details and Advanced settings, folded) ─── */
+
+/* The values the eye looks for first: the time of day, the world year. */
+.project03 .eco-big {
+  color: var(--ui-title);
+  font-size: var(--text-ui);
+  letter-spacing: 0.02em;
+}
+
+.project03 .eco-of {
+  color: var(--ui-muted);
+  font-size: var(--text-micro);
+}
+
+/* The day stepper and the way back to the opening year, one quiet line under the playback. */
+.project03 .eco-timefoot,
+.project03 .eco-subrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.project03 .eco-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.project03 .eco-stepper .text-button {
+  min-width: 22px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.project03 .eco-subrow-label {
+  min-width: 0;
+  color: var(--ui-title);
+  font-size: var(--text-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A folded section: its whole title is the button that opens it. */
+.project03 .eco-fold .panel-section-head {
+  margin-bottom: 0;
+}
+
+.project03 .eco-fold .panel-section-body {
+  margin-top: 12px;
+}
+
+.project03 .eco-fold-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.project03 .eco-fold-toggle:hover .panel-section-title {
+  color: var(--ui-title);
+}
+
+/* World details: a few short blocks, each with a small heading. */
+.project03 .eco-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.project03 .eco-detail-head {
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.project03 .eco-facts,
+.project03 .creature-card-rows {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 10px;
+  margin: 0;
+  font-size: var(--text-label);
+  line-height: 1.4;
+}
+
+.project03 .eco-facts dt,
+.project03 .creature-card-rows dt {
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.project03 .eco-facts dd,
+.project03 .creature-card-rows dd {
+  margin: 0;
+  color: var(--ui-muted);
+  overflow-wrap: anywhere;
+}
+
+/* The creature card reads in three labelled lines under its state. */
+.project03 .creature-card {
+  width: min(320px, calc(100% - 28px));
+}
+
+/* Narrower windows: the panel sits along the bottom (system.css), so the creature card moves above it, and the page's heading keeps to one line. */
+@media (max-width: 720px) {
+  .project03 .creature-card {
+    bottom: calc(42vh + 2 * var(--edge));
+    max-height: 30vh;
+    overflow-y: auto;
+  }
+
+  .project03 .region-left .project-tag {
+    display: none;
+  }
+}
+
+/* Every button row in this panel shares the panel's width evenly and never runs past its edge (four species, four creature cameras, four speeds). */
+.project03 .instrument-panel .segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.project03 .instrument-panel .segmented button {
+  min-width: 0;
+  padding-left: 2px;
+  padding-right: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The weather keeps its own two-row grid. */
+.project03 .instrument-panel .segmented.eco-conditions {
+  grid-auto-flow: row;
+}
+
+/* ─── The Guide (guide03.tsx): the shared Learn card, set on the right while the regular panel is folded away, and set for reading aloud ─── */
+/* Upper left, as in the 0.1 and 0.2 guides, just under the page's heading (--guide-top is measured by the page), with the regular panel on the right. */
+.project03 .learn-card.guide03 {
+  left: var(--edge);
+  right: auto;
+  top: var(--guide-top, calc(var(--header-h) + var(--edge) + 150px));
+  width: min(400px, calc(100% - var(--panel-w) - 3 * var(--edge)));
+  max-height: calc(100% - var(--guide-top, 260px) - var(--guide-bottom, 24px));
+  gap: 12px;
+  padding: 16px 20px 14px;
+}
+
+/* During the guide the heading keeps only its title and About / Guide, as in the 0.1 guide; the versions, the description and the Labs list step aside
+   (the last step links to the Labs), so the card sits directly under the title. The lower-left cards share the guide's left edge. */
+.project03.is-guiding .region-left > :not(.exercise-heading):not(.about-drawer) {
+  display: none;
+}
+
+.project03.is-guiding .creature-card {
+  left: var(--edge);
+}
+
+.project03 .learn-card.guide03.is-folded {
+  max-height: none;
+}
+
+.project03 .learn-card-fold {
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+/* The script: the 0.1 guide's type (learn.css), as short paragraphs without bullets. */
+.project03 .learn-card.guide03 .learn-points li {
+  padding-left: 0;
+}
+
+.project03 .learn-card.guide03 .learn-points li::before {
+  display: none;
+}
+
+.project03 .learn-card.guide03 .learn-cue {
+  font-size: var(--text-label);
+}
+
+/* The last step's optional Lab links. */
+.project03 .guide-labs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+
+.project03 .guide-labs-label {
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.project03 .guide-labs-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+/* Shorter screens: a little tighter, so a whole step fits without scrolling. */
+@media (max-height: 760px) {
+  .project03 .learn-card.guide03 {
+    padding: 12px 16px 12px;
+    gap: 10px;
+  }
+
+}
+
+/* Return to Guide, on a Lab the guide opened (ShadowEcologyVersions.tsx). */
+.guide-return {
+  position: fixed;
+  z-index: 40;
+  top: calc(var(--header-h) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--rule);
+  border-top: 1px solid var(--signal);
+  background: rgba(10, 10, 10, 0.94);
+}
+
+.guide-return-label {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+}
+
+.project03 .learn-card.guide03 .learn-cue {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.project03 .learn-card.guide03 .learn-cue-label {
+  white-space: nowrap;
+}
+
+.project03 .learn-card.guide03 .learn-card-count {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* The visual experiments: six styles in two rows of three. */
+.project03 .instrument-panel .eco-visuals .segmented {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Visual Study 02's rendering languages: eight, with long names, in two columns whose labels wrap rather than being cut. */
+.project03 .instrument-panel .eco-studies .segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.project03 .instrument-panel .eco-studies .segmented button {
+  margin: -1px 0 0 -1px;
+  white-space: normal;
+  line-height: 1.25;
+  text-align: left;
+}
+
+/* A pale study background (Illustrated World — Stylized by day): the text drawn straight on the stage — the site header, the title, the versions and the
+   folded panel's title — turns to ink. The open panel keeps its own dark ground. */
+html[data-stage='light'] .app-header,
+.project03.is-light-stage .region-left,
+.project03.is-light-stage .instrument-panel.is-collapsed {
+  --ink: #2e2a33;
+  --ui-title: #2b2630;
+  --ui-text: #3a3440;
+  --ui-muted: rgba(43, 38, 48, 0.68);
+  --ui-faint: rgba(43, 38, 48, 0.38);
+  --rule: rgba(43, 38, 48, 0.16);
+  --rule-strong: rgba(43, 38, 48, 0.3);
+}
+
+/* Visual filters: the main visual is one full-width choice above the alternatives. */
+.project03 .instrument-panel .eco-visual-main .segmented {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Explore data (Round 08C): the active view's legend as a compact overlay low left in the viewport, and the card for what the pointer is over. */
+.project03 .data-note {
+  margin: 0;
+}
+.project03 .data-legend {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 214px;
+  padding: 8px 10px 8px;
+  border: 1px solid var(--rule);
+  background: rgba(7, 8, 10, 0.8);
+  pointer-events: auto;
+}
+/* Above the Explore mini map when both are shown. */
+.project03 .world-canvas-wrap:has(.explore-map) .data-legend {
+  bottom: auto;
+  top: 96px;
+}
+.project03 .data-legend-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+  color: var(--ui-title);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+.project03 .data-legend-title b {
+  font-weight: inherit;
+  color: var(--tone);
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+}
+.project03 .data-legend-item,
+.project03 .data-legend-extra {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 -4px;
+  padding: 1px 4px;
+  border: 0;
+  background: none;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-label);
+  text-align: left;
+  white-space: nowrap;
+}
+.project03 .data-legend-item {
+  cursor: pointer;
+}
+.project03 .data-legend-item[data-lit='true'],
+.project03 .data-legend-item:hover {
+  color: var(--ui-title);
+  background: rgba(255, 255, 255, 0.06);
+}
+.project03 .data-legend-item[data-dim='true'] {
+  opacity: 0.45;
+}
+.project03 .data-legend-item[aria-pressed='true'] {
+  color: var(--ui-title);
+  box-shadow: inset 2px 0 0 var(--tone);
+}
+.project03 .data-legend-item i,
+.project03 .data-legend-extra i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex: none;
+}
+.project03 .data-ramp {
+  position: relative;
+  height: 12px;
+  margin: 2px 0 0;
+  cursor: crosshair;
+}
+.project03 .data-ramp-bar {
+  position: absolute;
+  inset: 0;
+}
+.project03 .data-ramp-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(10, 10, 12, 0.55);
+}
+.project03 .data-ramp-band {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  border: 1px solid var(--ui-title);
+  pointer-events: none;
+}
+.project03 .data-ramp-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+}
+.project03 .data-legend-hint {
+  margin-top: 3px;
+  color: var(--ui-faint);
+  font-size: var(--text-micro);
+}
+/* The card follows the pointer and never takes it: the island stays orbitable under it. */
+.project03 .organism-card.data-tip {
+  z-index: 4;
+  width: 248px;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Readability over close views (Approach, Explore), kept light so the UI stays part of the world: the open panel keeps its original translucent ground
+   (--panel-bg, 62%) and only softens what passes behind it, a quiet fall-off runs along the top edge under the header only, and the main title
+   carries a faint halo. Nothing applies on the pale Stylized stage, where the text turns to ink. */
+.project03:not(.is-light-stage) .instrument-panel:not(.is-collapsed) {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.project03:not(.is-light-stage) .world-canvas-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: calc(var(--header-h) + 16px);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+/* Only the main title carries a faint halo; the small lines beneath it (versions, description, Labs) stay clean. */
+.project03:not(.is-light-stage) .region-left .exercise-title {
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.45);
+}
+
+.project03 .data-tip .organism-card-row {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+
+/* Point & Inspect (Round 08F): the card for a clicked place, in the Living Architecture card's style, with a section per topic. */
+.project03 .organism-card.inspect-card {
+  z-index: 4;
+  width: 300px;
+}
+.project03 .inspect-section {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 5px;
+  border-top: 1px solid var(--rule);
+}
+.project03 .inspect-head {
+  color: var(--tone);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+.project03 .inspect-card .organism-card-row {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+.project03 .organism-card.inspect-card {
+  max-height: min(420px, calc(100% - 16px));
+  overflow-y: auto;
+}
+
+/* Round 08I: ONE ANIMATION for everything over the world: a card, its anchor and its leader fade in over 150 ms when they mount (each is
+   keyed by what it shows, so a new selection mounts afresh), and are removed at once. No slide (their position is set on transform by script),
+   no exit delay, no transitions. The probe crosshair, which follows the pointer, takes no animation. */
+@keyframes card-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.project03 .organism-card,
+.project03 .organism-leader,
+.project03 .organism-ring,
+.project03 .inspect-mark,
+.project03 .creature-card {
+  animation: card-in 150ms ease-out;
+}
+/* Inspect's marker: a small diamond with a dot, distinct from the Living Architecture ring. */
+.project03 .inspect-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--tone);
+  background: radial-gradient(circle, var(--tone) 0 2px, transparent 2.5px);
+  pointer-events: none;
+}
+.project03 .organism-card.inspect-card {
+  width: 268px;
+  max-height: none;
+  overflow: visible;
+}
+
+/* Inspect's probe marker (Round 08H): a fine crosshair at the pointer where a reading is taken; Explore's place cursor stays a ground ring. */
+.project03 .probe-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--tone), var(--tone)) center / 1px 100% no-repeat,
+    linear-gradient(var(--tone), var(--tone)) center / 100% 1px no-repeat;
+  -webkit-mask: radial-gradient(circle, transparent 0 3px, #000 3.5px);
+  mask: radial-gradient(circle, transparent 0 3px, #000 3.5px);
+}
+
+/* The two experiences (Round 08I): one switch beside the version tabs. */
+.project03 .experience-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 14px;
+  pointer-events: auto;
+}
+.project03 .experience-switch {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  pointer-events: auto;
+}
+.project03 .experience-switch button {
+  padding: 5px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.project03 .experience-switch button[aria-pressed='true'] {
+  background: var(--tone);
+  color: #111111;
+}
+.project03 .made-systems b {
+  color: var(--ui-title);
+  font-weight: inherit;
+  margin-right: 4px;
+}
+/* (The hover readout is a readout, not a selection: no entrance.) */
+.project03 .organism-card.data-tip {
+  animation: none;
+}
+
+/* Round 08J: Archive & tools, a quiet secondary entry beside the switch; in the panel, the version tabs and Labs as a plain list. */
+.project03 .archive-toggle {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+.project03 .archive-toggle[aria-pressed='true'] {
+  color: var(--ui-title);
+}
+.project03 .archive-versions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }

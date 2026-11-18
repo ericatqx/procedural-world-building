@@ -29,6 +29,7 @@ One page per week in the app, and one tutorial per week in [`docs/tutorials/`](d
 | 05 | Shaders | Vertex and fragment stages · uniforms, attributes and varyings · fields and terms on three specimens · displacement | [Shaders](docs/tutorials/05-shaders.md) |
 | 06 | Spatial Systems | Seeded candidates, valid ground and weighted draws · Random, Noise and Environment weights · spanner networks, downhill flow and branching growth · terrain-steered wind field, particles and exposure | [Spatial Systems](docs/tutorials/06-spatial-systems.md) |
 | 07 | Branching Systems | Stochastic L-systems and a 3D turtle · Free, Seek light and Seek shelter · growth through time · Full / Reduced / Skeleton LOD · one world branching into five histories · gated events and persistent traces | [Branching Systems](docs/tutorials/07-branching-systems.md) |
+| 08 | Agents & Scale | Working scale in metres · apparent size, field of view and dolly zoom · sampling, mesh and screen-space resolution · four-state agents with local perception · stigmergy and emergent paths | [Agents & Scale](docs/tutorials/08-agents-and-scale.md)  |
 
 Before Week 02: [Git and GitHub for Beginners](docs/tutorials/01-git-and-github.md) (Week 01). New notes start from the [tutorial template](docs/tutorials/_template.md).
 
@@ -97,13 +98,13 @@ The first prototype established the original relationship: architecture grows to
 
 ```text
 app/                   Vite + React + TypeScript + Three.js (React Three Fiber)
-  src/weeks/week02–07  Weekly exercise pages
+  src/weeks/week02–08  Weekly exercise pages
   src/project03/       Shadow Ecology 0.3 (in development)
   src/project02/       Shadow Ecology 0.2
   src/project/         Shadow Ecology 0.1 prototype
   src/shared/          Noise, shaders, snapshot persistence, UI system
 docs/
-  tutorials/           Weekly study notes (Week 01–07) and template
+  tutorials/           Weekly study notes (Week 01–08) and template
   analysis/            Experiments, observations and critique (incl. Living Architecture experiments)
   planning/            Shadow Ecology plan, visual direction and roadmap
   images/              Weekly, README and project screenshots

@@ -3,17 +3,20 @@ import { useEffect, useMemo } from 'react'
 import { Color, DoubleSide, MeshStandardMaterial, Vector2 } from 'three'
 import { environment, skyLit } from './environment.ts'
 import { applyMist } from './mist.ts'
+import { applyStyleFinish, specialiseStyle } from './visualStyle.ts'
 import { WATER_02 } from '../project02/materials.ts'
+
+/** 0.3's deep water: the 0.2 cobalt's deep end taken darker and more saturated, so depth reads more strongly; shallow and mid are 0.2's exactly. */
+export const WATER_DEEP_03 = '#0f2bb4'
 import { buildFallGeometry, buildRiverGeometry, type RiverSystem } from './rivers.ts'
 import { buildWaterGeometry, type WaterSystem } from './water.ts'
+import { drawnLift } from './terrainMesh.ts'
 
 /**
- * 0.3's still water, in the family 0.1 and 0.2 share: matte cobalt that
- * deepens to ultramarine, a pale line where it meets the ground, a slow broad
- * swell rather than waves, and the sky caught at grazing angles. Depth is read
- * in meters. The swell is drawn in the normal only, so the surface stays a flat
- * contour at its level (the shoreline is that contour) and the ripple fades
- * with distance, which keeps far lakes calm instead of noisy.
+ * 0.3's water uses 0.1 and 0.2's cobalt palette exactly (WATER_02): shallow #4466f2, mid #3155e4, deep #2242cc,
+ * the pale shore line #a9bbff, sky #5a7cf2, glint #8ea8ff. Flow and the swell are separate from that colour.
+ * Depth is read in meters. The swell is drawn in the normal only, so the surface stays a flat contour at its
+ * level (the shoreline is that contour) and the ripple fades with distance, which keeps far lakes calm.
  */
 export const WATER_03_DEPTH = {
   /** Meters over which the shallows deepen from the shore tone to the mid tone, then to the deep tone. */
@@ -48,7 +51,10 @@ float wNoise(vec3 x) {
 const FLOW_GLSL = /* glsl */ `
 // Streaks stretched along the flow: p is (meters along, share across).
 float streak(vec2 p) {
-  return wNoise(vec3(p.x * 0.014, p.y * 2.6, 0.0)) * 0.6 + wNoise(vec3(p.x * 0.036, p.y * 5.5, 3.7)) * 0.4;
+  // Fewer streaks across the stream, each shorter, bent by a slow cross-current and broken into patches: at close range the water reads as moving water, not as parallel lines.
+  float bend = (wNoise(vec3(p.x * 0.05, p.y * 0.7, 7.7)) - 0.5) * 0.9;
+  float patchy = 0.45 + 0.55 * wNoise(vec3(p.x * 0.04, p.y * 0.9, 9.1));
+  return (wNoise(vec3(p.x * 0.03, p.y * 1.3 + bend, 0.0)) * 0.6 + wNoise(vec3(p.x * 0.07, p.y * 2.4 + bend * 1.6, 3.7)) * 0.4) * patchy + (1.0 - patchy) * 0.5;
 }
 // Two offset phases of the same streaks, each restarting every cycle and crossfaded, so they never shear apart (0.2).
 float flowRipple(vec2 p, float speed) {
@@ -76,7 +82,11 @@ attribute float aDepth;
 attribute float aFall;
 attribute float aAlong;
 attribute float aAcross;
+attribute float aCalm;
 uniform float uRise;
+uniform float uLakeRise;
+uniform sampler2D uLodLift;
+varying float vWaterCalm;
 varying float vWaterDepth;
 varying float vWaterFall;
 varying float vWaterAlong;
@@ -97,10 +107,13 @@ uniform float uWind;
 uniform float uRain;
 uniform float uLit;
 uniform float uFlow;
+/** 1 on the rivers' ribbons, 0 on the lakes (Round 07: the Black Stage draws the current only where water flows). */
+uniform float uRiver;
 varying float vWaterDepth;
 varying float vWaterFall;
 varying float vWaterAlong;
 varying float vWaterAcross;
+varying float vWaterCalm;
 varying vec3 vWaterWorld;
 
 ${NOISE_GLSL}
@@ -135,7 +148,8 @@ float rainRings(vec2 p) {
 }`
 
 const water_albedo = (river: boolean) => /* glsl */ `
-float wRiver = ${river ? '1.0' : '0.0'};
+// A river is calm where it becomes a lake (its mouth): there it is drawn as the lake is.
+float wRiver = ${river ? '1.0 - vWaterCalm' : '0.0'};
 float wDistance = length(vViewPosition);
 float wNear = 1.0 - smoothstep(300.0, 2600.0, wDistance);
 // Still water and rivers share one depth ramp, read from the carved ground.
@@ -150,12 +164,15 @@ float wSpeed = mix(14.0, 32.0, vWaterFall) * (0.45 + 1.4 * uFlow);
 float wRipple = flowRipple(vec2(vWaterAlong, vWaterAcross), wSpeed);
 float wShimmer = mix(swell(vWaterWorld.xz) - 0.75, (wRipple - 0.5) * 1.6, wRiver);
 // The lake's shimmer livens with the wind: calm water is nearly flat, a breeze roughens it in drifting patches.
-waterColor *= 1.0 + wShimmer * mix(0.11 * (1.0 + 2.6 * uWind), 0.16, wRiver) * wNear;
+waterColor *= 1.0 + wShimmer * mix(0.06 * (1.0 + 1.2 * uWind), 0.2, wRiver) * wNear;
 float wThread = wRiver * (1.0 - smoothstep(0.0, 0.8, abs(vWaterAcross))) * smoothstep(0.56, 0.86, wRipple);
-waterColor = mix(waterColor, uLine, wThread * mix(0.12, 0.16, vWaterFall));
+waterColor = mix(waterColor, uLine, wThread * mix(0.12, 0.2, vWaterFall));
 // Steep reaches of a river run paler and break into foam at their head.
 float wRapid = wRiver * vWaterFall * smoothstep(0.5, 0.85, wRipple);
 waterColor = mix(waterColor, uLine, wRapid * 0.14);
+// By night the water is less bright and a little less saturated (uLit is the sky's light: 1 by day, 0.1 at night).
+float wNight = 1.0 - smoothstep(0.15, 0.7, uLit);
+waterColor = mix(waterColor, vec3(dot(waterColor, vec3(0.3333))) * 0.8, wNight * 0.3) * (1.0 - 0.42 * wNight);
 diffuseColor.rgb = waterColor;
 // Height of the streaks for the normal below (view-space derivatives, as in 0.2).
 float waterHeight = (wRipple - 0.5) * wRiver * 0.8;
@@ -169,7 +186,7 @@ float wE = 0.6;
 vec2 wP = vWaterWorld.xz;
 float wH = swell(wP);
 vec2 wSlope = vec2(swell(wP + vec2(wE, 0.0)) - wH, swell(wP + vec2(0.0, wE)) - wH) / wE;
-vec3 wTilt = (viewMatrix * vec4(-wSlope.x, 0.0, -wSlope.y, 0.0)).xyz * 0.8 * (1.0 + uWind * (0.6 + 2.0 * wNoise(vec3((wP - uWindPhase * 2.0) / 55.0, uTime * 0.08)))) * wFade * (1.0 - wRiver);
+vec3 wTilt = (viewMatrix * vec4(-wSlope.x, 0.0, -wSlope.y, 0.0)).xyz * 1.05 * (1.0 + uWind * (0.45 + 1.4 * wNoise(vec3((wP - uWindPhase * 2.0) / 55.0, uTime * 0.08)))) * wFade * (1.0 - wRiver);
 normal = normalize(normal + wTilt);
 // Wind raises wavelets that travel downwind across open water, in gusty patches: two crossing wave trains whose
 // slope tilts the surface, so the light on a lake visibly moves with the wind.
@@ -197,7 +214,7 @@ vec3 wR1 = cross(wDpdy, normal);
 vec3 wR2 = cross(normal, wDpdx);
 float wDet = dot(wDpdx, wR1);
 vec3 wGrad = sign(wDet) * (wDhdx * wR1 + wDhdy * wR2);
-normal = normalize(abs(wDet) * normal - wGrad * 0.5 * wNear);
+normal = normalize(abs(wDet) * normal - wGrad * mix(0.35, 1.05, wRiver) * wNear);
 `
 
 const WATER_LIT = /* glsl */ `
@@ -219,14 +236,15 @@ outgoingLight = mix(outgoingLight, min(outgoingLight, uGlint * 1.12), wGlow);
  * meters with distance (nothing within a few hundred meters), which keeps the line
  * whole from afar and leaves the close view exact.
  */
-const RIVER_FAR_LIFT = { near: 300, far: 2400, meters: 3 }
+// Round 07: the terrain lattice now holds every channel (terrainMesh.ts › latticeHeight), so the far lift is only a little depth-precision margin.
+const RIVER_FAR_LIFT = { near: 90, far: 1500, meters: 1.2 }
 
 export function createWater03Material(farLift = false) {
   const uniforms = {
     uTime: { value: 0 },
     uShallow: { value: new Color(WATER_02.uWaterShallow) },
     uMid: { value: new Color(WATER_02.uWaterMid) },
-    uDeep: { value: new Color(WATER_02.uWaterDeep) },
+    uDeep: { value: new Color(WATER_DEEP_03) },
     uLine: { value: new Color(WATER_02.uWaterLine) },
     uSky: { value: new Color(WATER_02.uWaterSky) },
     uGlint: { value: new Color(WATER_02.uWaterGlint) },
@@ -235,11 +253,16 @@ export function createWater03Material(farLift = false) {
     uWind: { value: 0 },
     uRain: { value: 0 },
     uRise: { value: 0 },
+    /** The lakes' rise after rain, which a river's calm mouth (on the lake's surface) follows. */
+    uLakeRise: { value: 0 },
     uFlow: { value: 0.3 },
     uLit: skyLit,
+    /** How far the terrain as drawn may stand over a river, chunk by chunk (terrainMesh.ts › drawnLift). */
+    uLodLift: drawnLift.uniform,
+    uRiver: { value: farLift ? 1 : 0 },
   }
   const material = new MeshStandardMaterial({ roughness: 0.3, metalness: 0, side: DoubleSide })
-  material.customProgramCacheKey = () => (farLift ? 'water03-river' : 'water03')
+  material.customProgramCacheKey = () => (farLift ? 'water03-river-cobalt' : 'water03-cobalt')
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms)
     shader.vertexShader = shader.vertexShader
@@ -249,13 +272,14 @@ export function createWater03Material(farLift = false) {
         `#include <begin_vertex>
 ${
   farLift
-    ? `transformed.y += ${RIVER_FAR_LIFT.meters.toFixed(1)} * smoothstep(${RIVER_FAR_LIFT.near.toFixed(1)}, ${RIVER_FAR_LIFT.far.toFixed(1)}, distance(cameraPosition, (modelMatrix * vec4(transformed, 1.0)).xyz)) + uRise;`
+    ? `transformed.y += (max(${RIVER_FAR_LIFT.meters.toFixed(1)} * smoothstep(${RIVER_FAR_LIFT.near.toFixed(1)}, ${RIVER_FAR_LIFT.far.toFixed(1)}, distance(cameraPosition, (modelMatrix * vec4(transformed, 1.0)).xyz)), texture2D(uLodLift, ((modelMatrix * vec4(transformed, 1.0)).xz + ${(4096/2).toFixed(1)}) / 4096.0).r * 2.0) + uRise) * (1.0 - smoothstep(1.0, 1.08, abs(aAcross))) * (1.0 - aCalm) + uLakeRise * aCalm;`
     : 'transformed.y += uRise;'
 }
 vWaterDepth = aDepth + ${farLift ? '0.0' : 'uRise'};
 vWaterFall = aFall;
 vWaterAlong = aAlong;
 vWaterAcross = aAcross;
+vWaterCalm = aCalm;
 vWaterWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
       )
     shader.fragmentShader = shader.fragmentShader
@@ -264,7 +288,9 @@ vWaterWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${WATER_NORMAL}`)
       .replace('#include <opaque_fragment>', `${WATER_LIT}\n#include <opaque_fragment>`)
     applyMist(shader)
+    applyStyleFinish(shader, 'water')
   }
+  specialiseStyle(material)
   return { material, uniforms }
 }
 
@@ -297,6 +323,8 @@ float fBillow = sin(fPhase + aAcross * 1.7) * 0.6 + sin(fPhase * 1.9 - aAcross *
 transformed += normal * fBillow * min(aFall.y * 0.12, aFall.x * 0.035) * smoothstep(0.1, 0.4, aDrop);`
 
 const FALL_FRAGMENT_HEAD = /* glsl */ `
+// The Black Stage draws a fall from these varyings (visualStudyWorlds.ts › dioramaStage, water).
+#define DS_FALL
 uniform float uTime;
 uniform vec3 uShallow;
 uniform vec3 uMid;
@@ -333,7 +361,8 @@ float fSlitN = wNoise(vec3(fX * 2.1 + 4.0, fT * 1.6 * max(1.0, fHeight / 150.0) 
 float fSlitAt = 0.0;
 float fSlit = smoothstep(fSlitAt, fSlitAt + 0.1, fSlitN);
 // Only a fall into open air ends in mist, and only at the very end; a plunge lands in its channel.
-float fFoot = 1.0 - fRim * smoothstep(0.8, 1.0, fT);
+// Round 08C: a fall into open air thins into spray over its lower half (it used to vanish over the last fifth, which read as a cut-off).
+float fFoot = 1.0 - fRim * smoothstep(0.42, 1.0, fT) * (0.75 + 0.25 * smoothstep(0.3, 0.7, fSlitN));
 // The colour the river arrived in, treated by its streaks exactly as the river's own are.
 vec3 fColor = wRamp(vFallInfo.w);
 fColor *= 1.0 + (fFlow - 0.5) * 0.16;
@@ -375,7 +404,7 @@ export function createFall03Material() {
     uTime: { value: 0 },
     uShallow: { value: new Color(WATER_02.uWaterShallow) },
     uMid: { value: new Color(WATER_02.uWaterMid) },
-    uDeep: { value: new Color(WATER_02.uWaterDeep) },
+    uDeep: { value: new Color(WATER_DEEP_03) },
     uLine: { value: new Color(WATER_02.uWaterLine) },
     uSky: { value: new Color(WATER_02.uWaterSky) },
     uGlint: { value: new Color(WATER_02.uWaterGlint) },
@@ -383,7 +412,7 @@ export function createFall03Material() {
     uFlow: { value: 0.3 },
   }
   const material = new MeshStandardMaterial({ roughness: 0.3, metalness: 0, side: DoubleSide, transparent: true, depthWrite: false })
-  material.customProgramCacheKey = () => 'water03-fall'
+  material.customProgramCacheKey = () => 'water03-fall-cobalt'
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms)
     shader.vertexShader = shader.vertexShader
@@ -395,14 +424,16 @@ export function createFall03Material() {
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${FALL_NORMAL}`)
       .replace('#include <opaque_fragment>', `${FALL_LIT}\n#include <opaque_fragment>`)
     applyMist(shader)
+    applyStyleFinish(shader, 'water')
   }
+  specialiseStyle(material)
   return { material, uniforms }
 }
 
 /** All of the world's still water as one surface, hidden or shown from Display. */
 export function WaterLayer({ water, rivers, visible }: { water: WaterSystem; rivers: RiverSystem; visible: boolean }) {
   const geometry = useMemo(() => buildWaterGeometry(water), [water])
-  const riverGeometry = useMemo(() => buildRiverGeometry(rivers), [rivers])
+  const riverGeometry = useMemo(() => buildRiverGeometry(rivers, water), [rivers, water])
   const { material, uniforms } = useMemo(() => createWater03Material(), [])
   const river = useMemo(() => createWater03Material(true), [])
   const fallGeometry = useMemo(() => buildFallGeometry(rivers), [rivers])
@@ -417,6 +448,7 @@ export function WaterLayer({ water, rivers, visible }: { water: WaterSystem; riv
     uniforms.uRise.value = lakeRise
     // Rivers stand a little higher in flood (their banks run under the surface, so they widen), and run faster.
     river.uniforms.uRise.value = Math.min(0.7, Math.max(0, flow - 0.15) * 0.9)
+    river.uniforms.uLakeRise.value = lakeRise
     uniforms.uFlow.value = flow
     river.uniforms.uFlow.value = flow
     fall.uniforms.uFlow.value = flow
@@ -445,8 +477,10 @@ export function WaterLayer({ water, rivers, visible }: { water: WaterSystem; riv
   useEffect(() => () => river.material.dispose(), [river])
   return (
     <>
-      <mesh geometry={geometry} material={material} visible={visible} frustumCulled renderOrder={0} />
-      <mesh geometry={riverGeometry} material={river.material} visible={visible} frustumCulled renderOrder={0} />
+      {/* Lakes and rivers take the sun's shadow map (the one the terrain is drawn with), so a mountain's shadow darkens the water under it as it does the
+          ground: only the sun's direct light is taken off, the water's own colour, sky and glow stay, so shaded water is a deeper cobalt, not grey. */}
+      <mesh geometry={geometry} material={material} visible={visible} frustumCulled renderOrder={0} receiveShadow />
+      <mesh geometry={riverGeometry} material={river.material} visible={visible} frustumCulled renderOrder={0} receiveShadow />
       {fallGeometry && <mesh geometry={fallGeometry} material={fall.material} visible={visible} frustumCulled renderOrder={1} />}
     </>
   )

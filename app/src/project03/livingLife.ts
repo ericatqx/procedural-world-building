@@ -219,7 +219,7 @@ export function decayTimes(grid: LifeGrid, dFull: Float32Array, dRef: Float32Arr
  * shaded old tissue has receded (`recede`), and how far lit recessions have refilled (`regen`, 0…1). The amounts come from
  * the population's history (livingEcology.ts); where they act comes from the organism's own shape (`lateWeights`).
  */
-export type LateState = { grow: number; recede: number; regen: number }
+export type LateState = { grow: number; recede: number; regen: number; /** The lab's lifecycle past death, 0 to 1: structural failure, rubble and a mineral apron (livingOverhang3.ts). */ ruin?: number }
 export type LateWeights = { grow: Float32Array; recede: Float32Array; regen: Float32Array; historical: Float32Array }
 
 /** A separable box blur of a field over its 3×3×3 neighbourhood, in place. */

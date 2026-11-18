@@ -1,0 +1,320 @@
+/* Creature Lab: rules specific to this workspace. The shared instrument layer lives in ui/system.css. */
+.clab .choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.clab .choice {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-label);
+  text-align: left;
+  cursor: pointer;
+}
+
+.clab .choice:hover {
+  color: var(--ui-title);
+}
+
+.clab .choice[aria-pressed='true'] {
+  border-color: var(--ui-title);
+  color: var(--ui-title);
+}
+
+.clab .note {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: var(--text-label);
+  line-height: 1.45;
+}
+
+.clab .note b {
+  color: var(--ui-title);
+  font-weight: 500;
+}
+
+.clab .panel-section-body > div[data-group] {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.clab .view-strip {
+  gap: 12px;
+}
+
+.clab .view-strip .readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+.clab .ref-label {
+  padding: 1px 5px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #e8e4d8;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.clab .choice:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.clab .agent-debug {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--rule);
+}
+
+.clab .agent-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-label);
+}
+
+.clab .agent-state b {
+  color: var(--ui-title);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.clab .agent-trace {
+  margin: 0;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.clab .agent-need {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.clab .agent-need i {
+  display: block;
+  height: 3px;
+  background: var(--ui-title);
+  opacity: 0.7;
+}
+
+.clab .agent-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Linked body-plan axes: a quiet bar per axis, from its low word to its high word. */
+.clab .trait-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+
+.clab .trait-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.clab .trait-row {
+  display: grid;
+  grid-template-columns: 78px 1fr 92px;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-muted);
+}
+
+.clab .trait-track {
+  position: relative;
+  height: 1px;
+  background: var(--rule-strong, #555);
+}
+
+.clab .trait-track i {
+  position: absolute;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  border-radius: 50%;
+  background: #e8e4d8;
+}
+
+.clab .trait-word {
+  color: var(--ui-title);
+}
+
+.clab .trait-bars.compact .trait-row {
+  grid-template-columns: 70px 64px 74px;
+  gap: 6px;
+  color: #a9a597;
+}
+
+.clab .trait-bars.compact .trait-word {
+  color: #e8e4d8;
+}
+
+.clab .kin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.62);
+  border-top: 1px solid rgba(232, 228, 216, 0.35);
+  color: #e8e4d8;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.clab .kin-name {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.clab .kin-gait {
+  color: #a9a597;
+}
+
+.clab .axis-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clab .anatomy {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px 14px;
+  margin: 0;
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.clab .anatomy div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.clab .anatomy dt {
+  color: var(--ui-muted);
+}
+
+.clab .anatomy dd {
+  margin: 0;
+  color: var(--ui-title);
+}
+
+/* Display controls in the view strip: the look and the hour. */
+.look-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.look-row .segmented {
+  width: auto;
+}
+
+/* The agent's state machine: every state, the current one filled, the reachable ones outlined, the one it is heading for marked. */
+.clab .fsm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.clab .fsm-state {
+  padding: 2px 7px;
+  border: 1px solid var(--rule);
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: 0.55;
+}
+.clab .fsm-state.is-next {
+  opacity: 1;
+  border-color: var(--ui-muted);
+}
+.clab .fsm-state.is-now {
+  opacity: 1;
+  background: var(--ui-title);
+  border-color: var(--ui-title);
+  color: var(--ui-bg, #000);
+}
+.clab .fsm-state.is-goal {
+  opacity: 1;
+  border-color: var(--signal, #e0402a);
+  color: var(--signal, #e0402a);
+}
+.clab .agent-sub {
+  margin: 10px 0 2px;
+  color: var(--ui-title);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* In the narrow panel a four-way switch keeps to its width: tighter padding, and the labels may shrink. */
+.app-chrome .segmented button {
+  min-width: 0;
+  padding: 5px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The view strip keeps clear of the panel on the right, and its rows wrap instead of running under it. */
+.vlab .view-strip,
+.clab .view-strip {
+  right: calc(var(--panel-w) + 2 * var(--edge));
+}
+.vlab .view-strip-row,
+.clab .view-strip-row {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+/* A four-way switch in the panel wraps to two rows rather than cutting its labels. */
+.app-chrome .segmented:has(> button:nth-child(4)) {
+  flex-wrap: wrap;
+}
+.app-chrome .segmented:has(> button:nth-child(4)) > button {
+  flex: 1 1 calc(50% - 1px);
+  margin-top: -1px;
+  text-overflow: clip;
+}

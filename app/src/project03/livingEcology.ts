@@ -1,8 +1,11 @@
 import { sunAt } from '../project/sun.ts'
 import { clamp01, smoothstep } from '../project02/core.ts'
 import { chooseSite, rng } from './livingArchitecture.ts'
+import { riverEdgeField } from './vegRivers.ts'
 import type { OrganismForm } from './livingOverhang3.ts'
 import { LIFECYCLE, OBSERVATION_START } from './livingTime.ts'
+import { lifeStateAt, lifeTrack, TK } from './livingLifecycle.ts'
+import { architectureStyle } from './livingStyle.ts'
 import { islandRadius, landscapeHeight } from './terrain.ts'
 import type { World } from './world.ts'
 
@@ -47,18 +50,19 @@ const SUN_HOURS = [8, 10, 12, 14, 16]
  * the ground above RICH within 240 m, one recruit per PER_RECRUIT of it, within COLONY). A few loners stand on middling
  * ground far from everyone. At most MAX_ORGANISMS in all.
  */
-const FOUNDERS: [number, number] = [3, 14]
+const FOUNDERS: [number, number] = [3, 17]
 const PRIME = 0.6
-const GOOD_PER_FOUNDER = 24
+const GOOD_PER_FOUNDER = 20
 const RICH = 0.5
 const PER_RECRUIT = 3.2
-const SPACING = 300
-const RECRUIT: [number, number] = [46, 96]
-const RECRUIT_ROOM = 46
-const COLONY: [number, number] = [1, 9]
+const SPACING = 250
+// Recruits take root clear of their member's footprint: structures are 60 to 90 m across (see drawnSize).
+const RECRUIT: [number, number] = [72, 130]
+const RECRUIT_ROOM = 66
+const COLONY: [number, number] = [1, 10]
 const GENERATIONS = 3
-const LONERS = 7
-const MAX_ORGANISMS = 60
+const LONERS = 9
+const MAX_ORGANISMS = 70
 /**
  * Neighbours of one colony (kin: a parent and its recruit, or two recruits of one member) closer than this (and both mature)
  * can fuse, where a root can run between them over ground it can cross (see rootPath), and where they are not already
@@ -96,14 +100,24 @@ export type OrganismPlan = {
   height: number
   /** Footprint radius, metres. */
   radius: number
+  /**
+   * Its size class: how large the ground lets it grow (about 0.25 poor to 1.25 rich), read by every ecological decision (its form's
+   * dominance, its outlier and old shelf, fusion). Its drawn size (`form.size`) maps this into the world's final widths (drawnSize).
+   */
+  sizeClass: number
   /** The organism it was recruited from (a clonal offspring), or -1 for a founder or a loner. */
   parent: number
   /** Its colony (the founder's index), or -1 for a loner; and its generation in it (0 the founder). */
   colony: number
   generation: number
+  /** The ground's exposure where it stands (ridge +1, hollow −1) and how crowded it is by neighbours (0 to 1): inputs to its stress (livingLifecycle.ts). */
+  ridge: number
+  crowding: number
+  /** The world year it died (its reserve spent: livingLifecycle.ts), or −1 while it lives (or past the timeline's end). */
+  died: number
 }
 export type Link = { a: number; b: number; since: number; distance: number }
-export type Population = { seed: number; organisms: OrganismPlan[]; links: Link[]; from: number; to: number; series: Float32Array[]; sunH: [number, number]; fieldMs: number; simMs: number }
+export type Population = { seed: number; organisms: OrganismPlan[]; links: Link[]; from: number; to: number; series: Float32Array[]; /** Each organism's life track, a row per year from `from` (livingLifecycle.ts). */ track: Float32Array[]; sunH: [number, number]; fieldMs: number; simMs: number }
 
 export type OrganismState = {
   present: boolean
@@ -123,8 +137,13 @@ export type OrganismState = {
 }
 
 // ------------------------------------------------------------------------------------------------ the environment
+/** Metres a structure's centre keeps from a river's edge: its footing, and the flare of it, reach about this far. */
+const RIVER_CLEAR = 34
+
 export function environmentField(world: World): EcoField {
   const n = N * N
+  // The rivers are ribbons laid on the ground that the lakes' `depthAt` does not know: this reads the ribbon itself, along its whole length.
+  const riverEdge = riverEdgeField(world)
   const height = new Float32Array(n)
   const inside = new Uint8Array(n)
   const wet = new Uint8Array(n)
@@ -240,7 +259,7 @@ export function environmentField(world: World): EcoField {
       moisture[k] = clamp01(0.68 * Math.exp(-waterDist[k]! / 120) + 0.32 * smoothstep(-4, 14, hollow))
       soil[k] = (1 - smoothstep(0.08, 0.42, slope[k]!)) * (0.5 + 0.5 * smoothstep(-6, 16, hollow)) * (1 - smoothstep(260, 440, h))
       resource[k] = clamp01(0.55 * moisture[k]! + 0.45 * soil[k]!)
-      const ok = inside[k] && !wet[k] && waterDist[k]! > 28 && slope[k]! < 0.36
+      const ok = inside[k] && !wet[k] && waterDist[k]! > 28 && slope[k]! < 0.36 && riverEdge(x, z) > RIVER_CLEAR
       suit[k] = ok ? Math.pow(light[k]!, 0.7) * (0.35 + 0.65 * resource[k]!) * (1 - smoothstep(0.18, 0.36, slope[k]!)) : 0
     }
   }
@@ -255,6 +274,42 @@ export function conditionsAt(field: EcoField, x: number, z: number): Conditions 
 }
 
 // ------------------------------------------------------------------------------------------------ the population
+/**
+ * How a place shapes an organism (OrganismForm): from its light against the island's (`lit`, -1 to 1), its resource (soil and water),
+ * how exposed the ground is (`ridge`, -1 hollow to 1 ridge), how crowded it is, how damp, how near water, and its size. Open, lit, fed ground
+ * raises taller, more expansive structures; shaded or crowded ground lower, broader, denser and more lopsided ones; the water's edge
+ * anchors it and sends its roots toward the water. The population plans from this, and so does the Architecture Lab's habitat.
+ */
+export function formFromHabitat(h: { lit: number; resource: number; ridge: number; crowding: number; moisture: number; waterDist: number; size: number }) {
+  const { lit, resource, ridge, crowding } = h
+  return {
+    keep: Math.min(1.5, Math.max(0.6, 1 + 0.55 * lit + 0.7 * (resource - 0.45) - 0.18 * ridge - 0.28 * crowding)),
+    reach: Math.min(1.5, Math.max(0.55, 1 + 0.45 * lit + 0.4 * (resource - 0.45) - 0.5 * crowding)),
+    asym: Math.min(1, 0.6 * crowding + 0.5 * Math.max(0, -lit) + 0.25 * Math.abs(ridge)),
+    shore: h.waterDist < 160 ? Math.min(1, Math.max(0, 1 - (h.waterDist - 28) / 130)) : 0,
+    spread: Math.min(1.45, Math.max(0.8, 1 + 0.3 * ridge + 0.35 * crowding + 0.2 * Math.max(0, -lit))),
+    shelfLift: Math.min(1.35, Math.max(0.75, 1 + 0.5 * lit - 0.3 * crowding)),
+    dominance: Math.min(1, Math.max(0, (h.size - 0.62) / 0.5)),
+    curtain: h.moisture > 0.32,
+    mezzanine: h.moisture > 0.45,
+    lowMass: resource > 0.4,
+  }
+}
+
+/**
+ * FINAL SCALE. An Overhang's drawn size from its size class: the world's structures are about 60 to 90 m across (the poorest ground the
+ * smallest, the richest and the reference the largest), whatever the class's spread. Width per unit of size is about 90 m for the refined
+ * forms and 122 m for the reference (measured on built meshes), so the drawn size is the target width over that. Height follows each form's
+ * own proportions. Decisions read the class, never this.
+ */
+export const WIDTH_RANGE: [number, number] = [60, 90]
+export function targetWidth(sizeClass: number): number {
+  return WIDTH_RANGE[0] + (WIDTH_RANGE[1] - WIDTH_RANGE[0]) * smoothstep(0.25, 1, sizeClass)
+}
+export function drawnSize(sizeClass: number, reference = false): number {
+  return targetWidth(sizeClass) / (reference ? 122 : 90)
+}
+
 export function planPopulation(world: World, seed: number): Population {
   const started = performance.now()
   const field = environmentField(world)
@@ -366,16 +421,28 @@ export function planPopulation(world: World, seed: number): Population {
 
   // Light relative to the island's own: shaded organisms reach up (a taller keep), lit ones reach out (a longer shelf).
   const meanLight = sites.reduce((acc, s) => acc + conditionsAt(field, s.x, s.z).light, 0) / sites.length
+  const ridgeAt = (x: number, z: number, ground: number) => {
+    let around = 0
+    for (let k = 0; k < 8; k += 1) around += landscapeHeight(x + Math.cos(k * 0.785) * 160, z + Math.sin(k * 0.785) * 160)
+    return Math.max(-1, Math.min(1, (ground - around / 8) / 25))
+  }
+  const crowdingAt = (index: number) => Math.min(1, sites.reduce((acc, o, i) => (i === index ? acc : acc + (Math.hypot(o.x - sites[index]!.x, o.z - sites[index]!.z) < 260 ? Math.exp(-Math.hypot(o.x - sites[index]!.x, o.z - sites[index]!.z) / 110) : 0)), 0))
   const organisms: OrganismPlan[] = sites.map((s, index) => {
     const base = conditionsAt(field, s.x, s.z)
     const ground = landscapeHeight(s.x, s.z)
     const id = `LA-${String(index + 1).padStart(2, '0')}`
-    if (index === 0) return { index, id, x: s.x, z: s.z, ground, established: founded[0]!, maturity: LIFECYCLE.reference, variation: 0, form: {}, base, height: 34, radius: 48, parent: -1, colony: 0, generation: 0 }
+    if (index === 0) {
+      // The reference: size class 1 (its form is the reference one), drawn at the top of the range.
+      const ds = drawnSize(1, true)
+      return { index, id, x: s.x, z: s.z, ground, established: founded[0]!, maturity: LIFECYCLE.reference, variation: 0, form: { size: ds }, base, height: 34 * ds, radius: 48 * ds, sizeClass: 1, parent: -1, colony: 0, generation: 0, ridge: ridgeAt(s.x, s.z, ground), crowding: crowdingAt(0), died: -1 }
+    }
     const space = Math.min(...sites.filter((_, o) => o !== index).map((o) => Math.hypot(o.x - s.x, o.z - s.z)))
     // Size follows what the ground can feed, steeply: the richest ground raises organisms as large as the reference, the poorest
     // only small ones (and a recruit is smaller than the member it grew from).
     const fit = 0.55 * smoothstep(0.3, 0.78, base.resource) + 0.3 * smoothstep(0.35, 0.8, base.light) + 0.15 * smoothstep(120, 320, space)
     const size = Math.min(1.25, Math.max(0.28, 0.28 + 1.0 * Math.pow(fit, 1.7) + 0.08 * (rand() - 0.5))) * Math.min(1, 0.5 + space / 320) * Math.pow(0.9, s.generation)
+    // What it is drawn at (decisions below read `size`, the class; geometry reads `ds`).
+    const ds = drawnSize(size)
     const established = founded[index]!
     // Which way it opens: toward the lowest horizon near the sun's side (the most light and the least ground in the way),
     // within a wide arc; downhill helps.
@@ -414,45 +481,44 @@ export function planPopulation(world: World, seed: number): Population {
     const side = horizon(sunward + yaw - 0.9) - horizon(sunward + yaw + 0.9)
     // The ground under the shelf's reach: it follows the slope down (or climbs it).
     const along = sunward + yaw
-    const drop = landscapeHeight(s.x + Math.cos(along) * 40 * size, s.z + Math.sin(along) * 40 * size) - ground
+    const drop = landscapeHeight(s.x + Math.cos(along) * 40 * ds, s.z + Math.sin(along) * 40 * ds) - ground
     // How the ground shapes it. Open, lit, fed ground raises taller and more expansive structures; shaded or crowded ground lower,
     // broader, denser and more lopsided ones; the water's edge anchors it and sends its roots out toward the water.
     const lit = Math.max(-1, Math.min(1, (base.light - meanLight) / 0.25))
-    const keep = Math.min(1.5, Math.max(0.6, 1 + 0.55 * lit + 0.7 * (base.resource - 0.45) - 0.18 * ridge - 0.28 * crowding))
-    const reach = Math.min(1.5, Math.max(0.55, 1 + 0.45 * lit + 0.4 * (base.resource - 0.45) - 0.5 * crowding))
-    const asym = Math.min(1, 0.6 * crowding + 0.5 * Math.max(0, -lit) + 0.25 * Math.abs(ridge))
-    const shore = base.waterDist < 160 ? Math.min(1, Math.max(0, 1 - (base.waterDist - 28) / 130)) : 0
+    const shape = formFromHabitat({ lit, resource: base.resource, ridge, crowding, moisture: base.moisture, waterDist: base.waterDist, size })
+    const keep = shape.keep
+    const reach = shape.reach
     // The outlier is a second body some way out along the opening: only where its ground is dry or shallow all round.
     const wantsOuter = base.resource > 0.42 && space > 110 && size > 0.55
     const ax = sunH[0] * Math.cos(yaw) - sunH[1] * Math.sin(yaw)
     const az = sunH[0] * Math.sin(yaw) + sunH[1] * Math.cos(yaw)
-    const dry = (u: number, w: number) => world.water.depthAt(s.x + (ax * u - az * w) * size, s.z + (az * u + ax * w) * size) <= 0.6
+    const dry = (u: number, w: number) => world.water.depthAt(s.x + (ax * u - az * w) * ds, s.z + (az * u + ax * w) * ds) <= 0.6
     const outerOk = wantsOuter && [-10, 0, 10].every((w) => [-1, 0, 1].every((e) => dry(1 + 38 * reach + e * 9, w)))
     const form: OrganismForm = {
       anchored: true,
       site: [s.x, s.z],
       yaw,
-      size,
-      step: Math.min(2.6, (s.generation > 0 ? 1.15 : 1) / size),
-      keep,
-      reach,
-      spread: Math.min(1.45, Math.max(0.8, 1 + 0.3 * ridge + 0.35 * crowding + 0.2 * Math.max(0, -lit))),
-      shelfLift: Math.min(1.35, Math.max(0.75, 1 + 0.5 * lit - 0.3 * crowding)),
-      asym,
-      shore,
-      dominance: Math.min(1, Math.max(0, (size - 0.62) / 0.5)),
-      rise: Math.max(-6, Math.min(6, (drop / size) * 0.6)),
+      size: ds,
+      step: Math.min(2.6, (s.generation > 0 ? 1.15 : 1) / ds),
+      ...shape,
+      rise: Math.max(-6, Math.min(6, (drop / ds) * 0.6)),
       swing: Math.max(-1.8, Math.min(1.8, side * 14)),
       outlier: outerOk,
       oldShelf: established < 35 && size >= 0.6,
-      curtain: base.moisture > 0.32,
-      mezzanine: base.moisture > 0.45,
-      lowMass: base.resource > 0.4,
     }
-    return { index, id, x: s.x, z: s.z, ground, established, maturity: 1.2 * (14 + 26 * size) * (1.3 - 0.45 * (0.6 * base.resource + 0.4 * base.light)) * (0.9 + 0.2 * rand()), variation: index + 1, form, base, height: 34 * size * keep / Math.sqrt(form.spread!), radius: 48 * size * (0.7 + 0.3 * reach) * (form.spread ?? 1), parent: s.parent, colony: s.colony, generation: s.generation }
+    return { index, id, x: s.x, z: s.z, ground, established, maturity: 1.2 * (14 + 26 * size) * (1.3 - 0.45 * (0.6 * base.resource + 0.4 * base.light)) * (0.9 + 0.2 * rand()), variation: index + 1, form, base, height: 34 * ds * keep / Math.sqrt(form.spread!), radius: 48 * ds * (0.7 + 0.3 * reach) * (form.spread ?? 1), sizeClass: size, parent: s.parent, colony: s.colony, generation: s.generation, ridge, crowding, died: -1 }
   })
   const sim = simulate(organisms, sunH, (a, b) => rootPath(world, organisms, a, b))
-  return { seed, organisms, links: sim.links, from: sim.from, to: sim.to, series: sim.series, sunH, fieldMs: Math.round(fieldMs), simMs: Math.round(performance.now() - started - fieldMs) }
+  // Life and death (livingLifecycle.ts): stress, health and the reserve a year at a time, from the conditions the simulation gave each organism.
+  const years = sim.to - sim.from + 1
+  const track = organisms.map((o) => {
+    const row = sim.series[o.index]!
+    const made = lifeTrack(o.index, years, sim.from, (y) => ({ age: row[y * K + Q.age]!, vigor: row[y * K + Q.vigor]!, light: row[y * K + Q.light]!, moisture: row[y * K + Q.moisture]!, resource: row[y * K + Q.resource]!, shade: row[y * K + Q.shade]!, draw: row[y * K + Q.draw]! }), { ridge: o.ridge, crowding: o.crowding })
+    o.died = made.died
+    return made.track
+  })
+  void TK
+  return { seed, organisms, links: sim.links, from: sim.from, to: sim.to, series: sim.series, track, sunH, fieldMs: Math.round(fieldMs), simMs: Math.round(performance.now() - started - fieldMs) }
 }
 
 function simulate(organisms: OrganismPlan[], sunH: [number, number], canRoot: (a: number, b: number) => boolean) {
@@ -521,13 +587,13 @@ function simulate(organisms: OrganismPlan[], sunH: [number, number], canRoot: (a
         const b = organisms[j]!
         const d = distance(a, b)
         if (d > FUSE_DISTANCE) continue
-        if (Math.abs((a.form.size ?? 1) - (b.form.size ?? 1)) > 0.5) continue
+        if (Math.abs(a.sizeClass - b.sizeClass) > 0.5) continue
         // Kin only: a root runs from a member to its recruit, or between recruits of one member.
         const kin = a.parent === j || b.parent === i || (a.parent >= 0 && a.parent === b.parent)
         if (!kin) continue
         // A connection is a substantial thing: only between organisms big enough to bear one, one each (two for the largest).
-        if (Math.min(a.form.size ?? 1, b.form.size ?? 1) < 0.4) continue
-        const room = (k: number, o: OrganismPlan) => links.filter((l) => l.a === k || l.b === k).length < ((o.form.size ?? 1) >= 0.8 ? 2 : 1)
+        if (Math.min(a.sizeClass, b.sizeClass) < 0.4) continue
+        const room = (k: number, o: OrganismPlan) => links.filter((l) => l.a === k || l.b === k).length < (o.sizeClass >= 0.8 ? 2 : 1)
         if (!room(i, a) || !room(j, b)) continue
         // Not a second route between two that are already joined through a third.
         if (links.some((l) => (l.a === i || l.b === i) && links.some((m) => (m.a === j || m.b === j) && (l.a === m.a || l.a === m.b || l.b === m.a || l.b === m.b)))) continue
@@ -655,6 +721,26 @@ export function observe(pop: Population, index: number, time: number): Observati
   else [stage, happening] = ['Weathering', 'Growth has slowed; shaded tissue is wearing away into cavities.']
 
   const notes: string[] = []
+  // The refined Overhang's lifecycle (livingLifecycle.ts): its stage, health and stress, and its death, from its age and conditions.
+  if (architectureStyle() === 'refined') {
+    const ls = lifeStateAt(pop.track[index]!, pop.from, o.established, o.died, time)
+    const pct = (v: number) => `${Math.round(100 * v)}%`
+    const yrs = Math.floor(ls.sinceDeath)
+    const text: Record<string, string> = {
+      establishment: 'A small anchored footing is spreading over its ground.',
+      juvenile: 'Early vertical growth: its tower is rising toward the light.',
+      growing: 'Its tower stands; the cantilever is extending and its supports are forming.',
+      maturity: 'Fully grown: tower, cantilever and supports at their full form.',
+      senescence: 'Its living skin is decaying and mineralising, the shaded tissue first; the skeleton still stands and is weathering.',
+      death: `Dead ${yrs} ${yrs === 1 ? 'year' : 'years'}: its life has ended; the cantilever is breaking back and its supports are failing.`,
+      remains: `Remains, dead ${yrs} years: low rubble and a mineral deposit on the ground, weathered ${pct(ls.weathered)} of the way to settling.`,
+    }
+    stage = ls.stage.label
+    happening = text[ls.stage.id]!
+    notes.push(`Health ${pct(ls.health)}, environmental stress ${pct(ls.stress)}, growth ${ls.growth.toFixed(2)}.`)
+    if (ls.lifespan !== null) notes.push(`Lived ${ls.lifespan} years (it died in year ${ls.died}).`)
+    else if (ls.expectedDeath !== null) notes.push(`On its present course it will die in about year ${ls.expectedDeath}${ls.stage.id === 'senescence' ? ` (its reserve is ${pct(ls.reserve)} left)` : ''}.`)
+  }
   const effects = neighbourEffects(pop, index, time)
   const shader = effects.reduce((a, b) => (b.shade > a.shade ? b : a), { index: -1, shade: 0, draw: 0 })
   const drawer = effects.reduce((a, b) => (b.draw > a.draw ? b : a), { index: -1, shade: 0, draw: 0 })
@@ -669,12 +755,12 @@ export function observe(pop: Population, index: number, time: number): Observati
   else if (index !== 0 && reach > 1.08) notes.push('Its site faces the sun, so its shelf reaches farther than most.')
   if (index !== 0 && (o.form.spread ?? 1) > 1.08) notes.push('On exposed high ground it grew low and broad.')
   else if (index !== 0 && (o.form.spread ?? 1) < 0.92) notes.push('In a sheltered hollow it grew narrow and tall.')
-  if (index !== 0 && o.base.resource < 0.45 && (o.form.size ?? 1) < 0.5) notes.push('Thin, dry ground has kept it small.')
+  if (index !== 0 && o.base.resource < 0.45 && o.sizeClass < 0.5) notes.push('Thin, dry ground has kept it small.')
   for (const l of s.links) notes.push(`Joined to ${name(l.other)} by a root since year ${l.since}${l.progress < 1 ? ' (still growing)' : ''}: they share water and soil.`)
   if (children.length) notes.push(`Parent of ${children.map((c) => c.id).join(', ')}.`)
   const years = Math.floor(s.years)
   const rooted = o.established < 0 ? `rooted ${-o.established} ${o.established === -1 ? 'year' : 'years'} before year 0` : `rooted in year ${o.established}`
-  return { stage, age: `${years} ${years === 1 ? 'year' : 'years'} old · ${rooted}`, origin, happening, notes: notes.slice(0, 4) }
+  return { stage, age: `${years} ${years === 1 ? 'year' : 'years'} old · ${rooted}`, origin, happening, notes: notes.slice(0, 5) }
 }
 
 function stageOf(s: OrganismState, reference: boolean, regenerating: boolean, receding: number): string {

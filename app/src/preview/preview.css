@@ -1,0 +1,7083 @@
+/*
+ * Shadow Ecology — website preview (/preview).
+ * Built on the project's own tokens (index.css) and the Style Guide: Unbounded for titles only, the system sans for interface and prose,
+ * mono for what the system reports. The one accent is the site's signal red, used as Learn/Guide mode uses it: rules, cues, the current
+ * place — never for decoration. Thin rules and spacing instead of containers; no blur, no decorative gradients.
+ */
+
+.pv-site {
+  --pv-edge: clamp(16px, 2.8vw, 40px);
+  --pv-nav-h: 60px;
+  --pv-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  /* Project's one background, behind every section and the navigation. */
+  --pv-black: #0a0a0a;
+  /* Project's layout: the index column, the gutter either side of the content, the content's widest, the space between sections. */
+  --pv-index-w: 64px;
+  --pv-gutter: clamp(56px, 6.4vw, 104px);
+  /* Formation's text column, on near-black, out to where the world's window begins. */
+  --pv-fm-band: calc(var(--pv-index-w) + var(--pv-gutter) + 320px + 72px);
+  --pv-content-max: 1120px;
+  --pv-sec-space: clamp(112px, 15vh, 184px);
+
+  position: fixed;
+  inset: 0;
+  background: #000;
+  color: var(--ui-title);
+  font-family: var(--sans);
+}
+
+.pv-site a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* (Zero specificity, so every button's own class sets its type.) */
+:where(.pv-site) button {
+  font: inherit;
+  color: inherit;
+}
+
+@keyframes pv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pv-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ───────── Site navigation ───────── */
+
+.pv-nav {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--pv-nav-h);
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 0 var(--pv-edge);
+  pointer-events: none;
+  animation: pv-fade 0.6s ease both;
+}
+
+.pv-nav > * {
+  pointer-events: auto;
+}
+
+.pv-wordmark {
+  margin-right: auto;
+}
+
+.pv-wordmark-name {
+  font-family: var(--heading);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: var(--track-display);
+  white-space: nowrap;
+}
+
+.pv-nav-links {
+  display: flex;
+  gap: clamp(18px, 2.6vw, 36px);
+}
+
+.pv-nav-links a {
+  position: relative;
+  padding: 6px 0;
+  font-size: var(--text-label);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  transition: color 0.2s;
+}
+
+.pv-nav-links a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--signal);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.45s var(--pv-ease);
+}
+
+.pv-nav-links a:hover,
+.pv-nav-links a[aria-current='page'] {
+  color: var(--ui-title);
+}
+
+.pv-nav-links a[aria-current='page']::after {
+  transform: scaleX(1);
+}
+
+.pv-nav-classic {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.pv-nav-classic:hover {
+  color: var(--ui-title);
+}
+
+/* Over the scrolling Project page the bar is a solid band with a rule, so text passing beneath never shows through. */
+.pv-on-project .pv-nav {
+  background: var(--pv-black);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* ───────── The world layer (shared by Home and Explore) ───────── */
+
+/* Always the whole window: the island is composed by the camera (homeScene.ts), never by scaling or masking the picture. */
+.pv-world {
+  position: fixed;
+  inset: 0;
+  /* (Moved up with Project's Formation as the page scrolls: a compositor transform only.) */
+  will-change: transform;
+  /* The 0.3 page lays its own chrome out under a header of this height: ours. */
+  --header-h: var(--pv-nav-h);
+}
+
+/* While the loading screen is up nothing of the site shows (the navigation included); it all appears with the island. */
+.pv-site[data-loading='true'] .pv-nav {
+  visibility: hidden;
+}
+
+/* Behind a Lab or an exercise the world stays mounted (so coming back is immediate) but is neither drawn nor seen. */
+.pv-world.is-aside,
+.pv-on-open .pv-veil {
+  visibility: hidden;
+}
+
+/* Project draws no loading screen of its own over the page: Formation says the island is still growing. */
+.pv-on-project .pv-veil {
+  display: none;
+}
+
+/* The world, paused while Formation is out of sight, is not seen either. */
+.pv-world {
+  transition: opacity 0.5s ease;
+}
+
+.pv-world.is-paused {
+  opacity: 0;
+}
+
+/* The 0.3 page's own panel and heading are not used here: Explore's rail and drawers drive the same world. */
+.pv-world .app-chrome {
+  display: none;
+}
+
+/* Home: a still plate, not touched by the pointer, with none of the world's own notes or cards. (Project's World Anatomy makes it live: the island
+   takes the pointer and shows its legend, readout and cards.) */
+.pv-world.is-backdrop:not(.is-live) {
+  pointer-events: none;
+}
+
+.pv-world.is-backdrop:not(.is-live) .world-canvas-wrap > :not(.world-canvas) {
+  display: none;
+}
+
+/* The 0.3 page's dark band under its header is not needed under this navigation. */
+.pv-world .world-canvas-wrap::after {
+  display: none;
+}
+
+
+/*
+ * THE LOADING SCREEN: above everything (the navigation and the page's text included), so the page appears at once, complete.
+ * While it is up the page's own entrance animations wait (data-loading on .pv-site), and play as it lifts.
+ */
+.pv-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: #000;
+  transition: opacity 0.9s ease;
+}
+
+.pv-veil[data-done='true'] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pv-veil-mark {
+  position: absolute;
+  top: 0;
+  left: var(--pv-edge);
+  display: flex;
+  align-items: center;
+  height: var(--pv-nav-h);
+  margin: 0;
+  font-family: var(--heading);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: var(--track-display);
+  color: var(--ui-title);
+}
+
+.pv-veil-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  transition:
+    opacity 0.5s ease,
+    transform 0.9s var(--pv-ease);
+}
+
+.pv-veil[data-done='true'] .pv-veil-centre {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.pv-fig {
+  display: block;
+  overflow: visible;
+}
+
+.pv-fig-arc {
+  stroke: var(--rule);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.pv-fig-ground {
+  stroke: var(--rule-strong);
+  stroke-width: 1;
+}
+
+.pv-fig-shade {
+  fill: rgba(233, 230, 223, 0.1);
+}
+
+.pv-fig-column,
+.pv-fig-roof {
+  fill: var(--ui-title);
+}
+
+.pv-fig-sun {
+  fill: var(--signal);
+}
+
+.pv-veil-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-veil-bar {
+  position: relative;
+  width: 72px;
+  height: 1px;
+  background: var(--rule);
+  overflow: hidden;
+}
+
+.pv-veil-bar i {
+  position: absolute;
+  inset: 0;
+  background: var(--signal);
+  transform-origin: left;
+  transition: transform 0.6s var(--pv-ease);
+}
+
+.pv-site[data-loading='true'] *,
+.pv-site[data-loading='true'] *::before,
+.pv-site[data-loading='true'] *::after {
+  animation-play-state: paused !important;
+}
+
+.pv-site[data-loading='true'] .pv-veil *,
+.pv-site[data-loading='true'] .pv-veil *::before,
+.pv-site[data-loading='true'] .pv-veil *::after {
+  animation-play-state: running !important;
+}
+
+/* ───────── Shared bits ───────── */
+
+.pv-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-kicker span:first-child {
+  color: var(--signal);
+}
+
+.pv-enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-title);
+}
+
+.pv-enter i {
+  position: relative;
+  width: 56px;
+  height: 1px;
+  background: var(--signal);
+  transition: width 0.5s var(--pv-ease);
+}
+
+.pv-enter i::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-top: 1px solid var(--signal);
+  border-right: 1px solid var(--signal);
+  transform: rotate(45deg);
+}
+
+.pv-enter:hover i {
+  width: 92px;
+}
+
+.pv-enter.is-small {
+  margin-top: 8px;
+}
+
+.pv-quiet-link {
+  padding: 12px 0;
+  font-size: var(--text-label);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  transition: color 0.2s;
+}
+
+.pv-quiet-link:hover {
+  color: var(--ui-title);
+}
+
+.pv-text {
+  margin: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  font-family: var(--sans) !important;
+  font-size: var(--text-label) !important;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted) !important;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pv-text:hover,
+.pv-text[aria-pressed='true'],
+.pv-text[aria-expanded='true'] {
+  color: var(--ui-title) !important;
+}
+
+.pv-text[aria-pressed='true'],
+.pv-text[aria-expanded='true'] {
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 5px;
+}
+
+/* ───────── Home ───────── */
+
+.pv-home {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.pv-home > * {
+  pointer-events: auto;
+}
+
+.pv-home-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none !important;
+}
+
+.pv-home.is-column .pv-home-shade {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.84), rgba(0, 0, 0, 0.55) 30%, rgba(0, 0, 0, 0) 46%), linear-gradient(to top, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0) 16%);
+}
+
+.pv-home > :not(.pv-home-shade) {
+  animation: pv-rise 1.1s var(--pv-ease) both;
+}
+
+.pv-home.is-leaving > :not(.pv-home-shade) {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+  animation: none;
+}
+
+.pv-home.is-leaving .pv-home-shade {
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.pv-clockline {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* B · EDITORIAL COLUMN: one narrow column, the chain set as a sequence on a red rule; the island beside it. */
+.pv-column {
+  position: absolute;
+  top: calc(var(--pv-nav-h) + clamp(28px, 6vh, 64px));
+  bottom: calc(var(--pv-edge) + clamp(12px, 3vh, 32px));
+  left: var(--pv-edge);
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 2 * var(--pv-edge)));
+}
+
+/* The title block keeps to the top; the four stages take the middle with room around them; the way in sits low. */
+.pv-column-head {
+  flex: none;
+}
+
+.pv-column .pv-column-chain {
+  margin: auto 0;
+}
+
+.pv-column .pv-column-actions {
+  margin-top: clamp(20px, 4vh, 40px);
+}
+
+/* Bold uppercase (from concept B), sized to the column: the title holds the column's head without crowding the quieter text below. */
+.pv-column-title {
+  margin: 20px 0 22px;
+  font-family: var(--heading);
+  font-size: clamp(2.2rem, 3.7vw, 3.5rem);
+  font-weight: 600;
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+}
+
+.pv-column-lede {
+  margin: 0 0 26px;
+  font-size: var(--text-lead);
+  line-height: 1.5;
+  color: var(--ui-text);
+}
+
+.pv-column-chain {
+  margin: 0 0 30px;
+  padding: 0 0 0 16px;
+  list-style: none;
+  border-left: 1px solid var(--signal);
+}
+
+.pv-column-chain li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: clamp(8px, 1.5vh, 14px) 0;
+}
+
+.pv-column-n {
+  margin-right: 10px;
+  color: var(--signal);
+}
+
+/* The plate caption at the island's foot (Home): a hairline over the figure's name and the scene's state. */
+.pv-home-plate {
+  position: absolute;
+  right: var(--pv-edge);
+  bottom: calc(var(--pv-edge) - 2px);
+  margin: 0;
+}
+
+/* The plate's caption: a specimen annotation set straight on the image, not a card. Right-aligned under a fine rule that ends in a short red mark;
+   a soft, edgeless darkening behind it (and a faint text shadow) keeps it readable over bright ground without drawing a panel. */
+.pv-home-plate figcaption {
+  position: relative;
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  min-width: 250px;
+  isolation: isolate;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.72);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 0 14px rgba(0, 0, 0, 0.45);
+}
+
+.pv-home-plate figcaption::before {
+  /* Only a faint, compact shade right around the text, blurred so it has no edge or shape of its own. */
+  content: '';
+  position: absolute;
+  inset: -6px -10px -8px -16px;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.2);
+  filter: blur(12px);
+  pointer-events: none;
+}
+
+/* The red mark: the rule's last stretch, at its right end. */
+.pv-home-plate figcaption::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: 0;
+  width: 28px;
+  height: 1px;
+  background: var(--signal);
+}
+
+.pv-home-plate-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pv-home-plate-fig {
+  color: var(--signal);
+}
+
+.pv-home-plate-title {
+  font-family: var(--sans, system-ui, sans-serif);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.pv-column-word {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-title);
+}
+
+.pv-column-line {
+  font-size: var(--text-body);
+  color: var(--ui-muted);
+}
+
+.pv-column-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 32px;
+}
+
+
+/* The review switch between the Home concepts (a tool for choosing, not part of either): bottom centre, quiet. */
+.pv-compare {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 12px;
+  border: 1px dashed var(--rule-strong);
+  background: rgba(0, 0, 0, 0.6);
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+  white-space: nowrap;
+}
+
+.pv-home > .pv-compare {
+  animation: none;
+}
+
+.pv-compare button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-compare button[aria-pressed='true'] {
+  color: var(--ui-title);
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 4px;
+}
+
+/* ── HOME B · THE DARK SPECIMEN: the island as a specimen under study, in dark, generous space. A title and one way in, four fine marks on real
+   places with their labels outside the island, the plate's caption. Hairlines, small mono labels, no boxes. ── */
+.pv-spec {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--ui-title);
+}
+
+.pv-spec a {
+  pointer-events: auto;
+}
+
+/* The air around the specimen: a barely-there lift of dark blue-green grey where it sits, so the island does not float in pure black. */
+.pv-spec-air {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(44% 50% at 54% 57%, rgba(46, 58, 56, 0.14), rgba(46, 58, 56, 0) 100%);
+}
+
+.pv-spec-leaders {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.pv-spec-leaders polyline {
+  fill: none;
+  stroke: rgba(233, 230, 223, 0.42);
+  stroke-width: 0.75;
+}
+
+.pv-spec-ring {
+  fill: none;
+  stroke: var(--ui-title);
+  stroke-width: 0.9;
+}
+
+.pv-spec-dot {
+  fill: var(--ui-title);
+}
+
+.pv-spec-note {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  animation: pv-fade 1.2s 0.4s ease both;
+}
+
+.pv-spec-note[data-left='true'] {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.pv-spec-note-label {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-title);
+}
+
+.pv-spec-note-text {
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+}
+
+.pv-spec-head {
+  position: absolute;
+  top: calc(var(--pv-nav-h) + clamp(24px, 5vh, 48px));
+  left: var(--pv-edge);
+  max-width: 440px;
+}
+
+.pv-spec-title {
+  margin: 0 0 14px;
+  font-family: var(--heading);
+  font-size: clamp(2.4rem, 4.4vw, 4.2rem);
+  font-weight: 600;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+}
+
+.pv-spec-sub {
+  margin: 0 0 26px;
+  max-width: 22em;
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  line-height: 1.6;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+/* The way in: a line of type with a rule under it, not a button. */
+.pv-spec-ways {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  margin: 0;
+}
+
+.pv-spec-enter {
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--signal);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-title);
+}
+
+.pv-spec-enter span {
+  display: inline-block;
+  margin-left: 8px;
+  transition: transform 0.3s var(--pv-ease);
+}
+
+.pv-spec-enter:hover span {
+  transform: translateX(4px);
+}
+
+.pv-spec-quiet {
+  font-size: var(--text-label);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-spec-quiet:hover {
+  color: var(--ui-title);
+}
+
+/* The plate's caption, low left: the figure and its moment, as the system reports it. */
+.pv-spec-caption {
+  position: absolute;
+  left: var(--pv-edge);
+  bottom: calc(var(--pv-edge) - 2px);
+  display: flex;
+  gap: 14px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-spec-caption span:first-child {
+  color: var(--signal);
+}
+
+@media (max-width: 820px) {
+  .pv-spec-note,
+  .pv-spec-leaders {
+    display: none;
+  }
+}
+
+/* ───────── Explore ───────── */
+
+/* The rail's height: every bottom-anchored thing in Explore stands on it. */
+.pv-site {
+  --rail: 74px;
+}
+
+.pv-explore {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  animation: pv-fade 0.9s 0.1s ease both;
+}
+
+/* A neutral fall-off under the rail, for legibility over bright ground. */
+.pv-explore::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--rail) + 90px);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+.pv-explore > * {
+  pointer-events: auto;
+}
+
+/* THE CARD SLOT, low on the left: the caption, the introduction, or (drawn by the world) a creature's card or a lens's legend. One at a time. */
+.pv-caption,
+.pv-card {
+  position: absolute;
+  left: var(--pv-edge);
+  bottom: calc(var(--rail) + 22px);
+  max-width: 380px;
+}
+
+.pv-caption {
+  pointer-events: none !important;
+}
+
+.pv-caption-mode {
+  margin: 0 0 6px;
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: var(--track-display);
+}
+
+.pv-caption-note {
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: 1.45;
+  color: var(--ui-text);
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+}
+
+/* A card: a hairline with the accent rule on top, as Learn's cards are. */
+.pv-card {
+  padding: 14px 16px 12px;
+  border-top: 1px solid var(--signal);
+  background: rgba(0, 0, 0, 0.8);
+  animation: pv-rise 0.6s var(--pv-ease) both;
+}
+
+.pv-card-label {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.pv-card-title {
+  margin: 0 0 6px;
+  font-size: var(--text-title);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.pv-card-text {
+  margin: 0 0 10px;
+  font-size: var(--text-body);
+  line-height: 1.5;
+  color: var(--ui-text);
+}
+
+.pv-card-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 28px;
+  margin-top: 4px;
+}
+
+.pv-enter.is-button {
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.pv-enter.is-button:hover i {
+  width: 56px;
+}
+
+/* The card's two actions: fixed in size and place (no hover growth), side by side. */
+.pv-card-actions .pv-card-primary,
+.pv-card-actions .pv-card-secondary {
+  margin: 0;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-label);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pv-card-actions .pv-card-primary {
+  font-weight: 600;
+  color: var(--ui-title);
+  border-bottom: 1px solid var(--signal);
+}
+
+.pv-card-actions .pv-card-secondary {
+  color: var(--ui-muted);
+}
+
+.pv-card-actions .pv-card-secondary:hover {
+  color: var(--ui-title);
+}
+
+/* The world's own cards take the same slot, on the same line; a creature's card outranks a lens's legend. */
+.pv-world .project03 .creature-card,
+.pv-world .project03 .data-legend {
+  left: var(--pv-edge);
+  bottom: calc(var(--rail) + 22px);
+}
+
+.pv-site:has(.pv-explore[data-creature='true']) .pv-world .project03 .data-legend {
+  display: none;
+}
+
+/* The inspection card in Explore: compact, and never taller than the room between the navigation and the rail; what does not fit scrolls
+   inside it (its head and close button stay at the top). */
+.pv-world .project03 .organism-card.inspect-card {
+  --inspect-top: 64px;
+  --inspect-bottom: 92px;
+  width: 280px;
+  max-height: calc(100vh - var(--pv-nav-h) - 128px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+
+.pv-world .project03 .inspect-card .organism-card-row {
+  grid-template-columns: 96px minmax(0, 1fr);
+  font-size: var(--text-micro);
+  line-height: 1.4;
+}
+
+.pv-world .project03 .inspect-card .inspect-section {
+  gap: 1px;
+  padding-top: 6px;
+  margin-top: 4px;
+}
+
+/* The legend's three states, distinct at a glance: what the pointer reads on the island is only marked (a fine underline, no dimming); a legend
+   entry hovered previews its place (the others step back a little); one pinned is held in the signal red until it is clicked again. */
+.pv-world .project03 .data-legend-item i,
+.pv-world .project03 .data-legend-extra i {
+  box-shadow: 0 0 0 1px rgba(233, 230, 223, 0.22);
+}
+
+.pv-world .project03 .data-legend-item[data-lit='true']:not([aria-pressed='true']) {
+  background: none;
+  box-shadow: inset 0 -1px 0 rgba(233, 230, 223, 0.5);
+}
+
+.pv-world .project03 .data-legend-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pv-world .project03 .data-legend-item[data-dim='true'] {
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.pv-world .project03 .data-legend-item[aria-pressed='true'] {
+  color: var(--ui-title);
+  background: none;
+  box-shadow: inset 2px 0 0 var(--signal);
+}
+
+.pv-world .project03 .data-legend-item[aria-pressed='true'] i {
+  box-shadow: 0 0 0 1px var(--signal);
+}
+
+.pv-world .project03 .data-ramp-band[data-kind='reading'] {
+  border: 0;
+  border-left: 1px solid var(--ui-title);
+  border-right: 1px solid var(--ui-title);
+}
+
+.pv-world .project03 .data-ramp-band[data-kind='preview'] {
+  border-color: rgba(233, 230, 223, 0.7);
+}
+
+.pv-world .project03 .data-ramp-band[data-kind='pinned'] {
+  border-color: var(--signal);
+}
+
+/* The 0.3 page's own instruction line (red, centre) repeats the caption: Explore keeps one instruction, in the caption. */
+.pv-world .project03 .eco-steer-hint {
+  display: none;
+}
+
+/* The Walk map: upper right, under the navigation, clear of the card slot and the rail. */
+.pv-world .project03 .explore-map {
+  top: calc(var(--pv-nav-h) + 12px);
+  right: var(--pv-edge);
+  bottom: auto;
+  left: auto;
+}
+
+/* The Guide's card: upper left, under the navigation, never down onto the rail. */
+.pv-world .project03 .learn-card.guide03 {
+  top: calc(var(--pv-nav-h) + 12px) !important;
+  left: var(--pv-edge) !important;
+  max-height: calc(100% - var(--pv-nav-h) - var(--rail) - 44px) !important;
+}
+
+/* THE DRAWER, on the right: one at a time, opened from the rail. */
+.pv-drawer {
+  position: absolute;
+  right: var(--pv-edge);
+  bottom: calc(var(--rail) + 22px);
+  display: flex;
+  flex-direction: column;
+  width: min(296px, calc(100vw - 2 * var(--pv-edge)));
+  max-height: calc(100% - var(--pv-nav-h) - var(--rail) - 34px);
+  border-top: 1px solid var(--signal);
+  background: rgba(0, 0, 0, 0.84);
+  animation: pv-rise 0.45s var(--pv-ease) both;
+}
+
+.pv-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-title);
+}
+
+.pv-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 14px 12px;
+  scrollbar-width: thin;
+}
+
+.pv-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-group-label {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-drawer-note,
+.pv-drawer-hint {
+  margin: 0;
+  font-size: var(--text-ui);
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+
+.pv-drawer-hint {
+  color: var(--ui-text);
+}
+
+.pv-lens-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-lens-list li > button {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 7px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font-size: var(--text-body);
+  color: var(--ui-muted);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pv-lens-list li > button:hover,
+.pv-lens-list li > button[aria-pressed='true'] {
+  color: var(--ui-title);
+}
+
+.pv-lens-index {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-faint);
+}
+
+.pv-lens-list li > button[aria-pressed='true'] .pv-lens-index {
+  color: var(--signal);
+}
+
+.pv-lens-list .pv-choice {
+  margin: 0 0 8px 26px;
+}
+
+.pv-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.pv-choice button {
+  margin: 0;
+  padding: 3px 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-choice button:hover,
+.pv-choice button[aria-pressed='true'] {
+  color: var(--ui-title);
+}
+
+.pv-choice button[aria-pressed='true'] {
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 5px;
+}
+
+.pv-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 3px 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-body);
+  color: var(--ui-muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.pv-check i {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--rule-strong);
+}
+
+.pv-check[aria-checked='true'] {
+  color: var(--ui-title);
+}
+
+.pv-check[aria-checked='true'] i {
+  border-color: var(--ui-title);
+  background: var(--ui-title);
+}
+
+.pv-range {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pv-range-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-ui);
+  color: var(--ui-text);
+}
+
+.pv-range-value {
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  color: var(--ui-title);
+}
+
+.pv-range input,
+.pv-scrub input {
+  --at: 0%;
+  display: block;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.pv-range input::-webkit-slider-runnable-track,
+.pv-scrub input::-webkit-slider-runnable-track {
+  height: 1px;
+  background: linear-gradient(to right, var(--ui-title) var(--at), var(--ui-faint) var(--at));
+}
+
+.pv-range input::-moz-range-track,
+.pv-scrub input::-moz-range-track {
+  height: 1px;
+  background: linear-gradient(to right, var(--ui-title) var(--at), var(--ui-faint) var(--at));
+}
+
+.pv-range input::-webkit-slider-thumb,
+.pv-scrub input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--ui-title);
+}
+
+.pv-range input::-moz-range-thumb,
+.pv-scrub input::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ui-title);
+}
+
+.pv-species {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-species button {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  width: 100%;
+  margin: 0;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  text-align: left;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-species button:hover,
+.pv-species button[aria-pressed='true'] {
+  color: var(--ui-title);
+}
+
+.pv-species-name {
+  font-size: var(--text-body);
+}
+
+.pv-species button[aria-pressed='true'] .pv-species-name::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin: 0 8px 2px 0;
+  background: var(--signal);
+}
+
+.pv-species-where {
+  grid-column: 1;
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+}
+
+.pv-species-count {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-faint);
+}
+
+.pv-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+}
+
+.pv-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-muted);
+}
+
+.pv-stepper .pv-text {
+  padding: 0 4px;
+  font-size: var(--text-body) !important;
+}
+
+/* Settings: three folded groups; inside, the 0.3 page's own controls in their own style. */
+.pv-fold {
+  border-top: 1px solid var(--rule);
+}
+
+.pv-fold-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 12px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-fold-head .pv-group-label {
+  color: var(--ui-title);
+}
+
+.pv-fold-hint {
+  flex: 1;
+  font-size: var(--text-ui);
+}
+
+.pv-fold-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 0 16px;
+}
+
+.pv-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pv-seed-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* THE RAIL: one ruled line along the bottom: views, time, and the way into everything else. */
+.pv-rail {
+  position: absolute;
+  left: var(--pv-edge);
+  right: var(--pv-edge);
+  bottom: 18px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-rail-group {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.pv-rail-button {
+  position: relative;
+  margin: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-label);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pv-rail-button:hover,
+.pv-rail-button[aria-pressed='true'],
+.pv-rail-button[aria-expanded='true'] {
+  color: var(--ui-title);
+}
+
+.pv-rail-button[aria-pressed='true'],
+.pv-rail-button[aria-expanded='true'] {
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 6px;
+}
+
+.pv-rail-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pv-rail-button.pv-guide[aria-pressed='true'] {
+  color: var(--signal);
+}
+
+.pv-more {
+  font-size: 16px;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.pv-reset {
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.pv-dot {
+  position: absolute;
+  top: 0;
+  right: -7px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--signal);
+}
+
+.pv-time {
+  justify-content: center;
+  gap: 22px;
+}
+
+.pv-play {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.pv-play:hover {
+  border-color: var(--ui-title);
+}
+
+.pv-scrub {
+  position: relative;
+  flex: 1 1 340px;
+  max-width: 500px;
+  min-width: 140px;
+}
+
+/* The day drawn on the rail: night at the ends, daylight between sunrise (06:00) and sunset (18:00). */
+.pv-daylight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+  height: 2px;
+  background: linear-gradient(to right, transparent 0 23%, rgba(233, 230, 223, 0.22) 27% 73%, transparent 77% 100%);
+  pointer-events: none;
+}
+
+/* The years drawn on the rail: where observation began (the structures' reference age). */
+.pv-lifecycle {
+  position: absolute;
+  top: 0;
+  left: var(--ref);
+  width: 1px;
+  height: 7px;
+  background: var(--signal);
+  pointer-events: none;
+}
+
+.pv-scrub-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-faint);
+}
+
+.pv-time-read {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 96px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-time-big {
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  line-height: 1;
+  letter-spacing: var(--track-data);
+  color: var(--ui-title);
+}
+
+.pv-time-small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-time-small button {
+  margin: 0;
+  padding: 0 3px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-time-small button:hover:not(:disabled) {
+  color: var(--ui-title);
+}
+
+.pv-time-small button:disabled {
+  opacity: 0.3;
+}
+
+.pv-time-small .pv-speed {
+  margin-left: 8px;
+  color: var(--ui-title);
+  border-bottom: 1px dotted var(--rule-strong);
+}
+
+.pv-scale {
+  display: flex;
+  gap: 12px;
+}
+
+.pv-rail-end {
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+
+/* Lenses and other choices in the drawers: small text chips, the chosen one underlined in the accent. */
+.pv-lens-group {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pv-lens-head {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+}
+
+.pv-lens-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+}
+
+.pv-lens {
+  margin: 0;
+  padding: 3px 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pv-lens:hover,
+.pv-lens[aria-pressed='true'] {
+  color: var(--ui-title);
+}
+
+.pv-lens[aria-pressed='true'] {
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 5px;
+}
+
+.pv-lens-about {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dotted var(--rule);
+}
+
+.pv-lens-about p {
+  margin: 0;
+  font-size: var(--text-ui);
+  line-height: 1.5;
+  color: var(--ui-text);
+}
+
+.pv-rail-status {
+  display: inline-block;
+  width: 7ch;
+  margin-left: 6px;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  text-transform: none;
+  color: var(--ui-faint);
+}
+
+.pv-restore {
+  color: var(--ui-title);
+}
+
+.pv-restore[data-hidden='true'] {
+  visibility: hidden;
+}
+
+.pv-rail-status[data-held='true'] {
+  color: var(--signal);
+}
+
+.pv-time-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.pv-time-meta {
+  display: flex;
+  gap: 12px;
+}
+
+.pv-time-meta .pv-speed {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted var(--rule-strong);
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-time-meta .pv-speed:hover {
+  color: var(--ui-title);
+}
+
+/* ───────── Project ───────── */
+
+.pv-project {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* Below Formation the page is solid: the world is only seen through Formation (and stops drawing once it is out of view). */
+.pv-project-body {
+  padding: 0 var(--pv-gutter) 0 calc(var(--pv-index-w) + var(--pv-gutter));
+  background: var(--pv-black);
+}
+
+.pv-project-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: min(82vh, 780px);
+  padding: calc(var(--pv-nav-h) + 40px) 0 56px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.pv-project-hero > * {
+  animation: pv-rise 1s var(--pv-ease) both;
+}
+
+.pv-project-hero > :nth-child(2) {
+  animation-delay: 0.1s;
+}
+.pv-project-hero > :nth-child(3) {
+  animation-delay: 0.25s;
+}
+
+.pv-project-title {
+  max-width: 13em;
+  margin: 26px 0 44px;
+  font-family: var(--heading);
+  font-size: var(--text-headline);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.pv-project-title em {
+  font-style: normal;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--ui-title);
+}
+
+.pv-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 34px;
+}
+
+.pv-toc a {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  transition: color 0.2s;
+}
+
+.pv-toc a::before {
+  content: '↓ ';
+  color: var(--signal);
+}
+
+.pv-toc a:hover {
+  color: var(--ui-title);
+}
+
+.pv-section {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 5fr;
+  gap: 24px 48px;
+  padding: 96px 0;
+  border-bottom: 1px solid var(--rule);
+  scroll-margin-top: var(--pv-nav-h);
+}
+
+.pv-section > :not(.pv-section-label) {
+  grid-column: 2;
+}
+
+.pv-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 1s var(--pv-ease),
+    transform 1s var(--pv-ease);
+}
+
+.pv-reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.pv-section-label {
+  grid-column: 1;
+  grid-row: 1 / span 9;
+  align-self: start;
+  position: sticky;
+  top: calc(var(--pv-nav-h) + 24px);
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-weight: 400;
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--ui-title);
+}
+
+.pv-section-label span {
+  color: var(--signal);
+}
+
+.pv-section-label.is-minor {
+  position: static;
+  color: var(--ui-muted);
+}
+
+.pv-section-intro {
+  max-width: 34em;
+  margin: 0 0 24px;
+  font-size: var(--text-lead);
+  line-height: 1.5;
+  color: var(--ui-text);
+}
+
+.pv-concept {
+  grid-template-columns: minmax(150px, 1fr) 3fr 2fr;
+}
+
+.pv-concept-body {
+  grid-column: 2 !important;
+  max-width: 36em;
+}
+
+.pv-concept-body p {
+  margin: 0 0 18px;
+  font-size: var(--text-prose);
+  line-height: 1.65;
+  color: var(--ui-text);
+}
+
+.pv-concept-body .pv-big-serif {
+  margin-bottom: 32px;
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  line-height: 1.3;
+  letter-spacing: var(--track-display);
+  color: var(--ui-title);
+}
+
+.pv-plate {
+  grid-column: 3 !important;
+  grid-row: 1;
+  align-self: start;
+  margin: 0;
+  transition: opacity 1.2s ease;
+}
+
+.pv-plate[data-ready='false'] {
+  opacity: 0.2;
+}
+
+.pv-plate canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 520px;
+  height: auto !important;
+  aspect-ratio: 1;
+}
+
+.pv-plate figcaption {
+  display: flex;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+
+.pv-plate figcaption span:first-child {
+  flex: none;
+  color: var(--signal);
+  text-transform: uppercase;
+}
+
+.pv-systems {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 56px 40px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-systems li {
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-system-index {
+  display: block;
+  margin-bottom: 24px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  color: var(--signal);
+}
+
+.pv-systems h3 {
+  margin: 0 0 12px;
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.pv-systems p {
+  margin: 0 0 14px;
+  font-size: var(--text-body);
+  line-height: 1.6;
+  color: var(--ui-text);
+}
+
+.pv-systems .pv-system-data {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+}
+
+.pv-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-history li {
+  display: grid;
+  grid-template-columns: minmax(140px, 260px) minmax(0, 40em);
+  gap: 24px;
+  padding: 36px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-history li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.pv-history-version {
+  font-family: var(--heading);
+  font-size: clamp(56px, 7vw, 112px);
+  font-weight: 200;
+  line-height: 0.85;
+  letter-spacing: -0.05em;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--ui-muted);
+}
+
+.pv-history li[data-current='true'] .pv-history-version {
+  color: var(--ui-title);
+  -webkit-text-stroke: 0;
+}
+
+.pv-history-date {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 10px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-tag {
+  color: var(--signal);
+}
+
+.pv-history h3 {
+  margin: 0 0 10px;
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.pv-history p {
+  margin: 0 0 16px;
+  font-size: var(--text-prose);
+  line-height: 1.6;
+  color: var(--ui-text);
+}
+
+.pv-arrow-link {
+  display: inline-block;
+  padding-bottom: 3px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-title);
+  border-bottom: 1px solid var(--rule-strong);
+  transition: border-color 0.2s;
+}
+
+.pv-arrow-link:hover {
+  border-color: var(--signal);
+}
+
+.pv-project-foot {
+  display: flex;
+  justify-content: space-between;
+  padding: 40px 0 48px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+/* ───────── Project: the chapter rail ───────── */
+
+/* A thin rail at the left edge: one number per section on a hairline that fills with the reading. The section in view is marked in red; the
+   labels come out on hover (the whole rail opens together), so the rail itself stays narrow and quiet. */
+.pv-index {
+  position: fixed;
+  z-index: 15;
+  top: var(--pv-nav-h);
+  bottom: 0;
+  left: 0;
+  width: var(--pv-index-w);
+  display: flex;
+  align-items: center;
+  padding-left: 22px;
+  pointer-events: none;
+}
+
+.pv-index ol {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: auto;
+}
+
+/* The hairline, and the reading's progress along it. */
+.pv-index ol::before,
+.pv-index ol::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -14px;
+  width: 1px;
+}
+
+.pv-index ol::before {
+  bottom: -14px;
+  background: var(--rule);
+}
+
+.pv-index ol::after {
+  height: calc((100% + 28px) * var(--progress, 0));
+  background: var(--signal);
+  opacity: 0.6;
+}
+
+.pv-index a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px 4px 12px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+  transition: color 0.3s;
+}
+
+/* The tick on the hairline. */
+.pv-index a::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 6px;
+  height: 1px;
+  background: var(--rule-strong);
+  transition:
+    width 0.3s var(--pv-ease),
+    background 0.3s;
+}
+
+.pv-index a:hover,
+.pv-index a:focus-visible,
+.pv-index a[aria-current='true'] {
+  color: var(--ui-title);
+}
+
+.pv-index a[aria-current='true']::before {
+  width: 9px;
+  background: var(--signal);
+}
+
+.pv-index a[aria-current='true'] .pv-index-n {
+  color: var(--signal);
+}
+
+.pv-index-label {
+  /* Out of the link's own box, so only the number itself is hovered: the label shows for the one item pointed at or focused. */
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  margin-left: 6px;
+  padding: 3px 8px;
+  background: var(--pv-black);
+  color: var(--ui-title);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-4px, -50%);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.3s var(--pv-ease);
+}
+
+.pv-index a:hover .pv-index-label,
+.pv-index a:focus-visible .pv-index-label {
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition-delay: 0.06s;
+}
+
+/* ───────── 01 World formation ───────── */
+
+/* The construction is the subject: the world fills the space right of the index; a short caption at the top left, a slim transport along
+   the bottom, and how it works only when asked for. */
+.pv-formation {
+  position: relative;
+  height: 100vh;
+  min-height: 600px;
+  padding: calc(var(--pv-nav-h) + 40px) var(--pv-gutter) 0 calc(var(--pv-index-w) + var(--pv-gutter));
+}
+
+/* The composition is fixed: a text column on near-black at the left (its edge a short, soft fall-off, not a long wash), the world in the window
+   to its right (the camera's lens shift keeps every view there, close-ups included: homeScene.ts), and a quiet band for the controls below. */
+.pv-formation::before,
+.pv-formation::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+/* The fall-offs are long and eased (many stops on a smooth curve), so the scene thins into the page's black with no edge to see: dense enough
+   under the text column to read it, gone well before the middle of the window; at the bottom a light wash under the controls, not a band. */
+.pv-formation::before {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--pv-fm-band) + 300px);
+  background: linear-gradient(
+    to right,
+    rgba(10, 10, 10, 0.94) 0%,
+    rgba(10, 10, 10, 0.92) 38%,
+    rgba(10, 10, 10, 0.86) 50%,
+    rgba(10, 10, 10, 0.74) 59%,
+    rgba(10, 10, 10, 0.58) 67%,
+    rgba(10, 10, 10, 0.4) 75%,
+    rgba(10, 10, 10, 0.23) 83%,
+    rgba(10, 10, 10, 0.1) 91%,
+    rgba(10, 10, 10, 0) 100%
+  );
+}
+
+.pv-formation::after {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 200px;
+  background: linear-gradient(
+    to top,
+    rgba(10, 10, 10, 0.78) 0%,
+    rgba(10, 10, 10, 0.6) 22%,
+    rgba(10, 10, 10, 0.4) 42%,
+    rgba(10, 10, 10, 0.22) 62%,
+    rgba(10, 10, 10, 0.08) 82%,
+    rgba(10, 10, 10, 0) 100%
+  );
+}
+
+.pv-fm-text {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(320px, 100%);
+  /* Never down into the transport: the column ends above it, and only How it works scrolls if the window is short. */
+  max-height: calc(100% - 128px);
+}
+
+.pv-fm-head {
+  flex: none;
+}
+
+.pv-fm-head {
+  animation: pv-rise 1s var(--pv-ease) both;
+}
+
+.pv-kicker span:first-child {
+  color: var(--signal);
+}
+
+.pv-fm-title {
+  margin: 14px 0 0;
+  font-family: var(--heading);
+  font-size: clamp(1.3rem, 1.8vw, 1.7rem);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ui-text);
+}
+
+.pv-fm-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 0;
+  width: min(300px, 100%);
+  margin-top: clamp(28px, 6vh, 72px);
+  animation: pv-rise 1s 0.15s var(--pv-ease) both;
+}
+
+.pv-fm-count {
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-fm-count span {
+  color: var(--signal);
+}
+
+.pv-fm-stage {
+  margin: 0 0 14px;
+  font-family: var(--heading);
+  font-size: clamp(1.9rem, 3vw, 2.8rem);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  animation: pv-rise 0.7s var(--pv-ease) both;
+}
+
+/* The generation step being shown now. */
+.pv-fm-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 1.4em;
+  margin: 0 0 14px;
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  letter-spacing: var(--track-data);
+  color: var(--ui-title);
+}
+
+.pv-fm-step::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  animation: pv-pulse 1.6s ease-in-out infinite;
+}
+
+.pv-fm-text-body {
+  margin: 0 0 18px;
+  font-size: var(--text-ui);
+  line-height: 1.6;
+  color: var(--ui-muted);
+}
+
+.pv-fm-more {
+  display: inline-flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-text);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.pv-fm-more:hover,
+.pv-fm-more[aria-expanded='true'] {
+  border-color: var(--signal);
+}
+
+/* How it works: what the stage reads, its rules and what it gives, in the text column under the caption, only while asked for. Compact rows (a
+   label, then short items run together), and it takes only the room left above the transport, scrolling within it if it must. */
+.pv-fm-caption > * {
+  flex: none;
+}
+
+.pv-fm-caption > .pv-fm-details {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.pv-fm-details {
+  width: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  animation: pv-rise 0.45s var(--pv-ease) both;
+}
+
+.pv-fm-io {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.pv-fm-io > div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+
+.pv-fm-io dt {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.pv-fm-io dd {
+  margin: 0;
+}
+
+.pv-fm-io ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-micro);
+  line-height: 1.5;
+  color: var(--ui-text);
+}
+
+.pv-fm-io li {
+  display: inline;
+}
+
+.pv-fm-io li + li::before {
+  content: ' · ';
+  color: var(--ui-muted);
+}
+
+/* The way on, at the end of the transport: there from the moment the island is complete, otherwise holding its place unseen. */
+.pv-fm-explore {
+  display: inline-flex;
+  gap: 10px;
+  padding-bottom: 6px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ui-title);
+  opacity: 0;
+  transform: translateX(-6px);
+  pointer-events: none;
+  transition:
+    opacity 0.6s ease,
+    transform 0.8s var(--pv-ease);
+}
+
+.pv-fm-explore[data-on='true'] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.pv-fm-explore span {
+  color: var(--signal);
+  transition: transform 0.35s var(--pv-ease);
+}
+
+.pv-fm-explore:hover span {
+  transform: translateX(5px);
+}
+
+.pv-inspect-io {
+  display: grid;
+  gap: 18px;
+  margin: 0 0 18px;
+}
+
+.pv-inspect-io dt {
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.pv-inspect-io dd {
+  margin: 0;
+  padding: 4px 0;
+  border-top: 1px solid var(--rule);
+  font-size: var(--text-ui);
+  line-height: 1.45;
+  color: var(--ui-text);
+}
+
+.pv-inspect-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: baseline;
+}
+
+:where(.pv-project) button.pv-arrow-link {
+  margin: 0;
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+  padding-left: 0;
+  padding-right: 0;
+  background: none;
+  cursor: pointer;
+}
+
+/* The transport: play, restart and speed, then the six stages as one timeline that can be dragged. */
+.pv-transport {
+  position: absolute;
+  left: calc(var(--pv-index-w) + var(--pv-gutter));
+  right: var(--pv-gutter);
+  z-index: 1;
+  bottom: 30px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 32px;
+}
+
+.pv-transport-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pv-play.is-main {
+  width: 38px;
+  height: 38px;
+  border-color: var(--ui-title);
+}
+
+.pv-play:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pv-speeds {
+  display: flex;
+  margin-left: 6px;
+}
+
+.pv-speeds button {
+  margin: 0;
+  padding: 5px 7px;
+  border: 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-faint);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pv-speeds button:hover {
+  color: var(--ui-text);
+}
+
+.pv-speeds button[aria-pressed='true'] {
+  color: var(--ui-title);
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 4px;
+}
+
+.pv-track {
+  position: relative;
+  padding-bottom: 4px;
+}
+
+.pv-track-stages {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-track-stages button {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 10px;
+  border: 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ui-faint);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.pv-track-stages button span {
+  color: inherit;
+}
+
+.pv-track-stages button:hover,
+.pv-track-stages li[data-state='done'] button {
+  color: var(--ui-muted);
+}
+
+.pv-track-stages li[data-state='now'] button {
+  color: var(--ui-title);
+}
+
+.pv-track-stages li[data-state='now'] button span {
+  color: var(--signal);
+}
+
+.pv-track-stages i {
+  position: relative;
+  display: block;
+  height: 2px;
+  background: var(--rule-strong);
+}
+
+.pv-track-stages i::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fill, 0%);
+  background: var(--ui-title);
+}
+
+.pv-track-stages li[data-state='now'] i::after {
+  background: var(--signal);
+}
+
+/* The scrubber lies over the bars: invisible but for its handle. */
+.pv-track-scrub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.pv-track-scrub::-webkit-slider-runnable-track {
+  height: 16px;
+  background: transparent;
+}
+
+.pv-track-scrub::-moz-range-track {
+  background: transparent;
+}
+
+.pv-track-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--ui-title);
+  box-shadow: 0 0 0 3px var(--pv-black);
+}
+
+.pv-track-scrub::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ui-title);
+}
+
+.pv-formation-wait {
+  position: absolute;
+  top: 48%;
+  left: calc(var(--pv-index-w) + (100% - var(--pv-index-w)) * 0.55);
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  transform: translate(-50%, -50%);
+  animation: pv-pulse 2s ease-in-out infinite;
+}
+
+@keyframes pv-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ───────── Project: sections ───────── */
+
+/* One grid for every section: the content column right of the index, at most --pv-content-max wide; generous space between sections,
+   a rule at the top of each, then its number, its title and one line of introduction. */
+.pv-sec {
+  max-width: var(--pv-content-max);
+  padding: var(--pv-sec-space) 0;
+  border-top: 1px solid var(--rule);
+  scroll-margin-top: var(--pv-nav-h);
+}
+
+.pv-sec:first-child {
+  border-top: 0;
+}
+
+.pv-sec-head {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  align-items: end;
+  gap: 14px 64px;
+  margin-bottom: clamp(64px, 9vh, 104px);
+}
+
+.pv-sec-n {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps-wide);
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.pv-sec-title {
+  margin: 0;
+  font-family: var(--heading);
+  font-size: clamp(2.2rem, 4vw, 3.6rem);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.pv-sec-intro {
+  max-width: 32em;
+  margin: 0;
+  font-size: var(--text-lead);
+  line-height: 1.55;
+  color: var(--ui-muted);
+}
+
+/* A part of a section: a thin rule, a small index letter and title, a muted line under it. */
+.pv-sub {
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-sub + .pv-sub,
+.pv-workshop + .pv-sub {
+  margin-top: clamp(80px, 11vh, 128px);
+}
+
+.pv-sub-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 8px;
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.pv-sub-title span {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-weight: 400;
+  color: var(--signal);
+}
+
+.pv-sub-note {
+  max-width: 40em;
+  margin: 0 0 32px;
+  font-size: var(--text-ui);
+  line-height: 1.6;
+  color: var(--ui-muted);
+}
+
+.pv-fig {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pv-fig-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}
+
+/* ───────── 02 Systems ───────── */
+
+.pv-diagram-scroll {
+  overflow-x: auto;
+  margin: 0 0 8px;
+}
+
+.pv-chain-graph {
+  display: block;
+  width: 100%;
+  min-width: 720px;
+  height: auto;
+}
+
+.pv-edge path {
+  fill: none;
+  stroke: var(--ui-faint);
+  stroke-width: 1;
+  transition: stroke 0.25s;
+}
+
+.pv-edge.is-in path {
+  stroke: var(--signal);
+  stroke-width: 1.5;
+}
+
+.pv-edge.is-out path {
+  stroke: var(--ui-title);
+  stroke-width: 1.2;
+}
+
+.pv-edge text {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--ui-muted);
+  paint-order: stroke;
+  stroke: var(--pv-black);
+  stroke-width: 4px;
+}
+
+.pv-edge.is-in text {
+  fill: var(--signal);
+}
+
+.pv-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.pv-node rect {
+  fill: var(--pv-black);
+  stroke: var(--rule-strong);
+  transition:
+    stroke 0.2s,
+    fill 0.2s;
+}
+
+.pv-node text {
+  font-family: var(--sans);
+  font-size: 12px;
+  fill: var(--ui-text);
+}
+
+.pv-node .pv-node-n {
+  font-family: var(--mono);
+  font-size: 9px;
+  fill: var(--ui-faint);
+}
+
+.pv-node:hover rect,
+.pv-node:focus-visible rect {
+  stroke: var(--ui-title);
+}
+
+.pv-node.is-on rect {
+  stroke: var(--signal);
+  fill: rgba(255, 31, 31, 0.1);
+}
+
+.pv-node.is-on .pv-node-n {
+  fill: var(--signal);
+}
+
+.pv-node-detail {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 38em);
+  gap: 40px;
+  align-items: start;
+  padding-top: 28px;
+  border-top: 1px solid var(--rule);
+  animation: pv-fade 0.4s ease both;
+}
+
+.pv-node-figure {
+  display: flex;
+  justify-content: center;
+}
+
+.pv-node-figure svg,
+.pv-node-figure canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+.pv-node-figure .pv-fig {
+  max-width: 240px;
+}
+
+.pv-node-detail h4 {
+  margin: 0 0 12px;
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.pv-node-detail p {
+  margin: 0 0 18px;
+  font-size: var(--text-prose);
+  line-height: 1.6;
+  color: var(--ui-text);
+}
+
+.pv-chain-io {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 4px 12px;
+  margin: 0 0 14px;
+}
+
+.pv-chain-io dt {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.pv-chain-io dd {
+  margin: 0;
+  font-size: var(--text-ui);
+  color: var(--ui-text);
+}
+
+.pv-chain-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+}
+
+/* The implementation: four lanes, left to right, each a column of the modules in it. */
+.pv-lanes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.pv-lane {
+  position: relative;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.pv-lane + .pv-lane::before {
+  content: '→';
+  position: absolute;
+  left: -20px;
+  top: -9px;
+  font-family: var(--mono);
+  font-size: var(--text-ui);
+  color: var(--signal);
+}
+
+.pv-lane-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0 0 14px;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.pv-lane-head span {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-weight: 400;
+  color: var(--signal);
+}
+
+.pv-lane-head em {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+}
+
+.pv-lane ol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-lane button {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 8px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.pv-lane button:disabled {
+  cursor: default;
+}
+
+.pv-lane button:not(:disabled):hover {
+  border-color: var(--ui-muted);
+}
+
+.pv-lane button[aria-pressed='true'] {
+  border-color: var(--signal);
+}
+
+.pv-box-name {
+  font-size: var(--text-ui);
+  color: var(--ui-title);
+}
+
+.pv-box-file {
+  grid-column: 1;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-muted);
+}
+
+.pv-box-kind {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+}
+
+.pv-lane button[aria-pressed='true'] .pv-box-kind {
+  color: var(--signal);
+}
+
+.pv-structures {
+  margin-top: 40px;
+}
+
+.pv-structure-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.pv-structure-tabs button {
+  margin: 0 0 -1px;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-structure-tabs button:hover {
+  color: var(--ui-title);
+}
+
+.pv-structure-tabs button[aria-selected='true'] {
+  color: var(--ui-title);
+  border-bottom-color: var(--signal);
+}
+
+.pv-structure {
+  display: grid;
+  grid-template-columns: minmax(220px, 340px) minmax(0, 1fr);
+  gap: 40px;
+  align-items: center;
+  padding-top: 28px;
+  animation: pv-fade 0.4s ease both;
+}
+
+.pv-structure-kind {
+  margin: 0 0 12px;
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.pv-structure ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-structure li {
+  padding: 6px 0;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  letter-spacing: var(--track-data);
+  color: var(--ui-text);
+}
+
+/* ───────── 03 Labs ───────── */
+
+.pv-lab-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
+}
+
+.pv-lab-cards > li {
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.pv-lab-cards a {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  padding: 20px 22px 24px;
+  transition: background 0.3s ease;
+}
+
+.pv-lab-cards a:hover {
+  background: rgba(233, 230, 223, 0.03);
+}
+
+.pv-lab-preview {
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px solid var(--rule);
+  transition: border-color 0.3s;
+}
+
+.pv-lab-cards a:hover .pv-lab-preview {
+  border-color: var(--rule-strong);
+}
+
+.pv-lab-name {
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.pv-lab-text {
+  font-size: var(--text-body);
+  line-height: 1.55;
+  color: var(--ui-muted);
+}
+
+.pv-lab-tries {
+  margin: 4px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-lab-tries li {
+  padding: 3px 0 3px 16px;
+  font-size: var(--text-ui);
+  line-height: 1.45;
+  color: var(--ui-text);
+  text-indent: -16px;
+}
+
+.pv-lab-tries li::before {
+  content: '— ';
+  color: var(--signal);
+}
+
+.pv-lab-go {
+  margin-top: auto;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  transition: color 0.2s;
+}
+
+.pv-lab-cards a:hover .pv-lab-go {
+  color: var(--signal);
+}
+
+/* ───────── 04 Development ───────── */
+
+.pv-workshop {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr);
+  gap: 40px;
+  padding: 28px 0 0;
+  border-top: 1px solid var(--rule-strong);
+  scroll-margin-top: calc(var(--pv-nav-h) + 24px);
+}
+
+.pv-workshop-head .pv-sec-n {
+  margin-bottom: 10px;
+}
+
+.pv-workshop-head h3 {
+  margin: 0 0 12px;
+  font-size: var(--text-title);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.pv-workshop-head p:not(.pv-sec-n) {
+  margin: 0 0 22px;
+  font-size: var(--text-body);
+  line-height: 1.55;
+  color: var(--ui-muted);
+}
+
+.pv-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.pv-tool-group {
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-tool-group h4 {
+  margin: 0 0 4px;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.pv-tool-group > p {
+  margin: 0 0 12px;
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+}
+
+.pv-tool-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-tool-group li {
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
+  font-size: var(--text-ui);
+  line-height: 1.45;
+  color: var(--ui-muted);
+}
+
+.pv-tool-group li span {
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-title);
+}
+
+.pv-sub[id] {
+  scroll-margin-top: calc(var(--pv-nav-h) + 24px);
+}
+
+.pv-exercise-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
+}
+
+.pv-exercise-grid li {
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.pv-exercise-grid a {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: 18px 20px 20px;
+  transition: background 0.3s ease;
+}
+
+.pv-exercise-grid a:hover {
+  background: rgba(233, 230, 223, 0.03);
+}
+
+.pv-week-mark {
+  display: block;
+  width: 104px;
+  height: 60px;
+  margin-bottom: 8px;
+}
+
+.pv-ex-week {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.pv-ex-name {
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.pv-ex-topic {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-ex-technique {
+  margin: 4px 0 10px;
+  font-size: var(--text-ui);
+  line-height: 1.5;
+  color: var(--ui-text);
+}
+
+.pv-ex-led {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+}
+
+.pv-ex-led em {
+  font-style: normal;
+  color: var(--ui-faint);
+  text-transform: uppercase;
+  letter-spacing: var(--track-caps);
+  margin-right: 6px;
+}
+
+/* ───────── 05 Archive ───────── */
+
+.pv-archive-more {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 56px;
+  margin-top: 64px;
+  padding-top: 32px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-refs {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-refs a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+  transition: color 0.2s;
+}
+
+.pv-refs a span {
+  color: var(--ui-title);
+}
+
+.pv-refs a:hover span {
+  color: var(--signal);
+}
+
+/* ───────── 02 Ecological systems: the chain ───────── */
+
+.pv-chain {
+  margin-bottom: 8px;
+}
+
+/* Five links in a row, each handing on to the next. */
+.pv-chain-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-chain-steps li {
+  position: relative;
+}
+
+.pv-chain-steps li + li::before {
+  content: '→';
+  position: absolute;
+  left: -6px;
+  top: 16px;
+  font-family: var(--mono);
+  font-size: var(--text-ui);
+  color: var(--ui-faint);
+}
+
+.pv-chain-steps button {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 16px 20px 18px 14px;
+  border: 0;
+  border-top: 1px solid var(--rule-strong);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+
+.pv-chain-steps button:hover {
+  border-top-color: var(--ui-muted);
+}
+
+.pv-chain-steps button[aria-pressed='true'] {
+  border-top-color: var(--signal);
+}
+
+.pv-chain-n {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-faint);
+}
+
+.pv-chain-steps button[aria-pressed='true'] .pv-chain-n {
+  color: var(--signal);
+}
+
+.pv-chain-title {
+  font-size: var(--text-title);
+  font-weight: 600;
+  color: var(--ui-muted);
+  transition: color 0.25s;
+}
+
+.pv-chain-steps button:hover .pv-chain-title,
+.pv-chain-steps button[aria-pressed='true'] .pv-chain-title {
+  color: var(--ui-title);
+}
+
+.pv-chain-affects {
+  font-size: var(--text-ui);
+  line-height: 1.45;
+  color: var(--ui-faint);
+}
+
+/* What the chain stands on: a quieter line beneath it. */
+.pv-chain-ground {
+  display: flex;
+  align-items: baseline;
+  gap: 22px;
+  padding: 14px 14px 0;
+  border-top: 1px dashed var(--rule);
+}
+
+.pv-chain-ground-label {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+}
+
+.pv-chain-ground button {
+  margin: 0;
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  font-size: var(--text-body);
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-chain-ground button:hover,
+.pv-chain-ground button[aria-pressed='true'] {
+  color: var(--ui-title);
+}
+
+.pv-chain-ground button[aria-pressed='true'] {
+  border-bottom-color: var(--signal);
+}
+
+.pv-chain-detail {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 36em);
+  gap: 56px;
+  align-items: start;
+  margin-top: 48px;
+  animation: pv-fade 0.4s ease both;
+}
+
+.pv-chain-figure {
+  display: flex;
+  justify-content: center;
+}
+
+.pv-chain-figure svg {
+  max-width: 240px;
+  height: auto;
+}
+
+.pv-chain-detail h3 {
+  margin: 0 0 14px;
+  font-family: var(--heading);
+  font-size: clamp(1.4rem, 2vw, 1.8rem);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+.pv-chain-detail p {
+  margin: 0 0 22px;
+  font-size: var(--text-prose);
+  line-height: 1.65;
+  color: var(--ui-text);
+}
+
+/* Lenses and the technical view, side by side. */
+.pv-views {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 64px;
+  margin-top: clamp(88px, 12vh, 128px);
+}
+
+.pv-views > div {
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-views-lenses ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-views-lenses a {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--text-body);
+  color: var(--ui-text);
+  transition: color 0.2s;
+}
+
+.pv-views-lenses a span {
+  color: var(--ui-faint);
+  transition:
+    color 0.2s,
+    transform 0.3s var(--pv-ease);
+}
+
+.pv-views-lenses a:hover {
+  color: var(--ui-title);
+}
+
+.pv-views-lenses a:hover span {
+  color: var(--signal);
+  transform: translateX(4px);
+}
+
+.pv-dataplate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 32px;
+  margin: 0;
+}
+
+.pv-dataplate-canvas {
+  position: relative;
+  width: 440px;
+  max-width: 100%;
+  aspect-ratio: 1;
+}
+
+.pv-dataplate-canvas canvas {
+  display: block;
+  max-width: 100%;
+  height: auto !important;
+  aspect-ratio: 1;
+  transition: opacity 0.8s ease;
+}
+
+.pv-dataplate-canvas[data-ready='false'] canvas {
+  opacity: 0;
+}
+
+.pv-dataplate-canvas span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+}
+
+.pv-dataplate-kind {
+  margin: 0 0 14px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+}
+
+.pv-dataplate-layers {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-dataplate-layers button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 9px 0 9px 18px;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  background: none;
+  text-align: left;
+  font-size: var(--text-ui);
+  line-height: 1.45;
+  color: var(--ui-faint);
+  position: relative;
+  cursor: pointer;
+}
+
+.pv-dataplate-layers button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--rule-strong);
+}
+
+.pv-dataplate-layers button[aria-pressed='true'] {
+  color: var(--ui-muted);
+}
+
+.pv-dataplate-layers button[aria-pressed='true']::before {
+  border-color: var(--signal);
+  background: var(--signal);
+}
+
+.pv-dataplate-layers button span {
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-text);
+}
+
+.pv-dataplate-count {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  line-height: 1.6;
+  color: var(--ui-faint);
+}
+
+/* Under the hood: closed by default, one quiet line. */
+.pv-hood {
+  margin-top: clamp(72px, 10vh, 112px);
+  border-top: 1px solid var(--rule);
+}
+
+.pv-hood summary {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 18px 0;
+  list-style: none;
+  cursor: pointer;
+}
+
+.pv-hood summary::-webkit-details-marker {
+  display: none;
+}
+
+.pv-hood summary::before {
+  content: '+';
+  font-family: var(--mono);
+  color: var(--signal);
+}
+
+.pv-hood[open] summary::before {
+  content: '−';
+}
+
+.pv-hood summary span {
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.pv-hood summary em {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-style: normal;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+}
+
+.pv-hood[open] > .pv-lanes {
+  margin-top: 16px;
+}
+
+/* ───────── 03 Development ───────── */
+
+/* The weeks as one timeline: number, mark, what it taught, where it went. */
+.pv-weekline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-weekline li {
+  display: grid;
+  grid-template-columns: 44px 104px minmax(0, 1fr) minmax(170px, 0.42fr);
+  align-items: center;
+  gap: 28px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+  transition: background 0.3s ease;
+}
+
+.pv-weekline li:hover {
+  background: rgba(233, 230, 223, 0.025);
+}
+
+.pv-wk-n {
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  color: var(--signal);
+}
+
+.pv-weekline .pv-week-mark {
+  width: 88px;
+  height: 50px;
+  margin: 0;
+}
+
+.pv-wk-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pv-wk-name {
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.pv-wk-name em {
+  margin-left: 4px;
+  font-style: normal;
+  color: var(--signal);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.pv-wk-body:hover .pv-wk-name em,
+.pv-wk-body:focus-visible .pv-wk-name em {
+  opacity: 1;
+}
+
+.pv-wk-technique {
+  font-size: var(--text-ui);
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+
+/* The systems a week went into: each opens in World Anatomy. */
+.pv-wk-led {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pv-wk-led button {
+  padding: 4px 9px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-text);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.pv-wk-led button:hover,
+.pv-wk-led button:focus-visible {
+  border-color: var(--signal);
+  color: var(--ui-title);
+}
+
+.pv-lab-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* ───────── 04 Archive ───────── */
+
+.pv-versions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-versions li {
+  display: grid;
+  grid-template-columns: 96px 96px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 24px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.pv-version-n {
+  font-family: var(--heading);
+  font-size: 2rem;
+  font-weight: 200;
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--ui-muted);
+}
+
+.pv-versions li[data-current='true'] .pv-version-n {
+  color: var(--ui-title);
+  -webkit-text-stroke: 0;
+}
+
+.pv-version-date {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+}
+
+.pv-version-body {
+  font-size: var(--text-ui);
+  line-height: 1.55;
+  color: var(--ui-muted);
+}
+
+.pv-version-body strong {
+  margin-right: 6px;
+  font-weight: 600;
+  color: var(--ui-title);
+}
+
+.pv-version-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 20px;
+}
+
+.pv-archive-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px 40px;
+  margin-top: 40px;
+}
+
+.pv-archive-label {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-faint);
+}
+
+.pv-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-refs a {
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+  transition: color 0.2s;
+}
+
+.pv-refs a:hover {
+  color: var(--ui-title);
+}
+
+/* ───────── Project on smaller screens ───────── */
+
+@media (max-width: 1180px) {
+  .pv-site {
+    --pv-index-w: 176px;
+  }
+
+  .pv-lanes,
+  .pv-tools-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pv-lane + .pv-lane::before {
+    display: none;
+  }
+
+  .pv-workshop {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-transport {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px 24px;
+  }
+
+  .pv-transport .pv-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .pv-lab-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pv-views,
+  .pv-dataplate {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-weekline li {
+    grid-template-columns: 36px 88px minmax(0, 1fr);
+  }
+
+  .pv-wk-led {
+    grid-column: 3;
+  }
+}
+
+/* Narrow: the rail becomes a strip of numbers under the navigation; everything stacks. */
+@media (max-width: 820px) {
+  .pv-site {
+    --pv-index-w: 0px;
+    --pv-gutter: 20px;
+  }
+
+  .pv-index {
+    bottom: auto;
+    right: 0;
+    width: auto;
+    height: 38px;
+    padding: 0 var(--pv-gutter);
+    background: var(--pv-black);
+    border-bottom: 1px solid var(--rule);
+    pointer-events: auto;
+  }
+
+  .pv-index ol {
+    flex-direction: row;
+    gap: 18px;
+  }
+
+  .pv-index ol::before,
+  .pv-index ol::after {
+    display: none;
+  }
+
+  .pv-index a::before {
+    display: none;
+  }
+
+  .pv-index a {
+    padding: 0;
+  }
+
+  .pv-index-label {
+    display: none;
+  }
+
+  .pv-fm-details {
+    max-height: none;
+  }
+
+  .pv-formation {
+    height: auto;
+    min-height: 100vh;
+    padding-top: calc(var(--pv-nav-h) + 38px + 28px);
+    padding-bottom: 150px;
+    background: linear-gradient(to bottom, rgba(10, 10, 10, 0.88), rgba(10, 10, 10, 0.3) 45%, rgba(10, 10, 10, 0.1) 60%, rgba(10, 10, 10, 0.94) 85%);
+  }
+
+  .pv-fm-caption {
+    margin-top: 24px;
+  }
+
+  .pv-fm-details {
+    position: static;
+    width: auto;
+    max-height: none;
+    margin-top: 20px;
+  }
+
+  .pv-track-stages button {
+    font-size: 0;
+  }
+
+  .pv-track-stages button span {
+    font-size: var(--text-micro);
+  }
+
+  .pv-sec {
+    scroll-margin-top: calc(var(--pv-nav-h) + 38px);
+  }
+
+  .pv-sec-head,
+  .pv-node-detail,
+  .pv-structure,
+  .pv-archive-more {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-lanes,
+  .pv-tools-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-history li,
+  .pv-versions li,
+  .pv-chain-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-chain-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-chain-steps li + li::before {
+    display: none;
+  }
+
+  .pv-weekline li {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .pv-weekline .pv-week-mark {
+    display: none;
+  }
+
+  .pv-wk-led {
+    grid-column: 2;
+  }
+
+  .pv-lab-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-site {
+    --pv-fm-band: 100%;
+  }
+
+  .pv-formation::before {
+    width: 100%;
+    background: linear-gradient(to bottom, var(--pv-black) 46%, rgba(10, 10, 10, 0) 64%);
+  }
+}
+
+/* ───────── Archive pages (a version or Lab, opened as it is) ───────── */
+
+.pv-open {
+  position: absolute;
+  inset: 0;
+}
+
+.pv-open-bar {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 var(--edge);
+  border-bottom: 1px solid var(--rule);
+  background: var(--pv-black);
+}
+
+.pv-open-crumb {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-open-crumb .pv-wordmark-name {
+  text-transform: none;
+  color: var(--ui-title);
+}
+
+.pv-open-sep {
+  color: var(--ui-faint);
+}
+
+.pv-open-kind {
+  color: var(--signal);
+}
+
+.pv-open-title {
+  margin-right: auto;
+  font-size: var(--text-ui);
+  color: var(--ui-text);
+}
+
+.pv-open-back {
+  display: inline-block;
+  margin: 6px 0 10px;
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-open-back:hover {
+  color: var(--ui-title);
+}
+
+.pv-missing {
+  display: grid;
+  place-content: center;
+  gap: 16px;
+  height: 100%;
+  font-size: var(--text-lead);
+  text-align: center;
+}
+
+/* While a page's code is still arriving (lazy routes). (Round 17: transparent, over the site's black and the world: it was the exercises' grey
+   (--field, #151515), the grey that flashed on a first move between Home, Explore and Project.) */
+.pv-pending {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+
+/* ───────── Narrow screens ───────── */
+
+@media (max-width: 1100px) {
+  .pv-concept {
+    grid-template-columns: minmax(150px, 1fr) 5fr;
+  }
+
+  .pv-plate {
+    grid-column: 2 !important;
+    grid-row: auto;
+  }
+
+  .pv-systems {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pv-site {
+    --rail: 132px;
+  }
+
+  .pv-rail {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .pv-time,
+  .pv-rail-end {
+    justify-content: flex-start;
+  }
+}
+
+/* Portrait and narrow: the camera puts the island below the text (homeScene.ts). */
+@media (max-width: 820px) {
+  .pv-home .pv-home-shade {
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.4) 50%, rgba(0, 0, 0, 0) 70%), linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0) 22%);
+  }
+
+  .pv-column {
+    top: calc(var(--pv-nav-h) + 30px);
+    bottom: auto;
+    justify-content: flex-start;
+  }
+
+  .pv-column-chain {
+    display: none;
+  }
+
+  .pv-home-plate {
+    left: var(--pv-edge);
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .pv-nav {
+    gap: 16px;
+  }
+
+  .pv-nav-classic {
+    display: none;
+  }
+
+  .pv-section,
+  .pv-concept {
+    grid-template-columns: 1fr;
+    padding: 64px 0;
+  }
+
+  .pv-section > *,
+  .pv-concept-body,
+  .pv-plate {
+    grid-column: 1 !important;
+  }
+
+  .pv-section-label {
+    grid-row: auto;
+    position: static;
+  }
+
+  .pv-systems,
+  .pv-labs {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-history li {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-home-foot .pv-home-seed {
+    margin-left: 0;
+  }
+
+  .pv-time-read {
+    min-width: 0;
+  }
+
+  .pv-site {
+    --rail: 176px;
+  }
+
+  .pv-time {
+    flex-wrap: wrap;
+    gap: 12px 16px;
+  }
+
+  .pv-rail-end {
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+
+  .pv-scrub {
+    flex-basis: calc(100% - 52px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-site *,
+  .pv-site *::before,
+  .pv-site *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* ───────── 02 World Anatomy ───────── */
+
+/* A gallery, one inspection at a time: the six systems as an index across the column (number, name, what is inspected), then the chosen one,
+   its figures at the left and its notes at the right. Editorial, not a dashboard: hairlines, mono labels, the figures on near-black. */
+.pv-an-tabs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 0 0 clamp(40px, 6vh, 64px);
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-an-tabs button {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 14px 14px 16px 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  font-size: var(--text-ui);
+  text-align: left;
+  color: var(--ui-muted);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.pv-an-tabs button span {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-muted);
+}
+
+.pv-an-tabs button em {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-style: normal;
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+  opacity: 0.8;
+}
+
+.pv-an-tabs button:hover {
+  color: var(--ui-title);
+}
+
+.pv-an-tabs button[aria-selected='true'] {
+  color: var(--ui-title);
+  border-bottom-color: var(--signal);
+}
+
+.pv-an-tabs button[aria-selected='true'] span {
+  color: var(--signal);
+}
+
+.pv-an-panel {
+  animation: pv-rise 0.5s var(--pv-ease) both;
+}
+
+.pv-an-head {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  align-items: baseline;
+  gap: 8px 64px;
+  margin-bottom: 32px;
+}
+
+.pv-an-head h3 {
+  margin: 0;
+  font-family: var(--heading);
+  font-size: clamp(1.6rem, 2.4vw, 2.2rem);
+  font-weight: 300;
+  letter-spacing: -0.025em;
+}
+
+.pv-an-head p {
+  margin: 0;
+  font-size: var(--text-ui);
+  line-height: 1.6;
+  color: var(--ui-muted);
+}
+
+.pv-an-lab {
+  grid-column: 2;
+  justify-self: start;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+  border-bottom: 1px solid var(--rule);
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.pv-an-lab:hover {
+  color: var(--ui-title);
+  border-color: var(--signal);
+}
+
+.pv-an-inspect {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: 48px;
+  align-items: start;
+}
+
+.pv-an-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.pv-an-figure figure {
+  margin: 0;
+}
+
+.pv-an-figure figcaption,
+.pv-an-caption {
+  margin: 8px 0 0;
+  max-width: 560px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+
+.pv-an-canvas {
+  display: block;
+  max-width: 100%;
+  background: rgba(233, 230, 223, 0.025);
+  outline: 1px solid var(--rule);
+}
+
+.pv-an-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 32px;
+  align-items: flex-start;
+}
+
+.pv-an-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 180px;
+  flex: 1 1 180px;
+}
+
+.pv-an-label {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-an-label em {
+  margin-left: 8px;
+  font-style: normal;
+  letter-spacing: var(--track-data);
+  text-transform: none;
+  color: var(--ui-title);
+}
+
+.pv-an-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding-top: 4px;
+}
+
+.pv-an-note {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-an-note p {
+  margin: 0;
+  font-size: var(--text-ui);
+  line-height: 1.6;
+  color: var(--ui-text);
+}
+
+.pv-an-note + .pv-an-note p {
+  color: var(--ui-muted);
+}
+
+.pv-an-readout {
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-an-readout-title {
+  margin: 0 0 8px;
+  font-size: var(--text-ui);
+  color: var(--ui-title);
+}
+
+.pv-an-readout dl {
+  margin: 0;
+}
+
+.pv-an-readout dl > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.pv-an-readout dt {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+}
+
+.pv-an-readout dd {
+  margin: 0;
+  font-size: var(--text-micro);
+  line-height: 1.5;
+  color: var(--ui-text);
+}
+
+.pv-an-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pv-an-slider input {
+  width: min(560px, 100%);
+  accent-color: var(--signal);
+}
+
+.pv-an-small {
+  margin: 0;
+  font-size: var(--text-micro);
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+
+.pv-an-red {
+  color: var(--signal);
+}
+
+.pv-an-waiting {
+  margin: 0;
+  padding: 40px 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-muted);
+}
+
+.pv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pv-chips button {
+  display: inline-flex;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: none;
+  font-size: var(--text-micro);
+  color: var(--ui-text);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.pv-chips button em {
+  font-style: normal;
+  color: var(--ui-muted);
+}
+
+.pv-chips button:hover {
+  border-color: var(--ui-muted);
+}
+
+.pv-chips button[aria-pressed='true'] {
+  border-color: var(--ui-title);
+  background: var(--ui-title);
+  color: var(--pv-black);
+}
+
+.pv-chips button[aria-pressed='true'] em {
+  color: rgba(10, 10, 10, 0.6);
+}
+
+/* Terrain: the layers the height is summed from. */
+.pv-an-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-an-layers button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 4px;
+  border: 1px solid transparent;
+  background: none;
+  font-size: var(--text-micro);
+  text-align: left;
+  color: var(--ui-text);
+  cursor: pointer;
+}
+
+.pv-an-layers button:hover {
+  border-color: var(--rule);
+}
+
+.pv-an-layers button[aria-pressed='true'] {
+  border-color: var(--signal);
+}
+
+.pv-an-layers img,
+.pv-an-layers i {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  background: rgba(233, 230, 223, 0.05);
+}
+
+.pv-an-layers span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pv-an-layers em {
+  font-family: var(--mono);
+  font-style: normal;
+  color: var(--ui-muted);
+}
+
+/* Light: the five sun samples and their sum. */
+.pv-an-rays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pv-an-ray {
+  margin: 0;
+}
+
+.pv-an-ray canvas {
+  display: block;
+  outline: 1px solid var(--rule);
+}
+
+.pv-an-ray figcaption b {
+  font-weight: 400;
+  color: var(--ui-title);
+}
+
+.pv-an-sum {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-an-sum li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-text);
+}
+
+.pv-an-sum i {
+  height: 6px;
+  background: #f2e4c4;
+}
+
+.pv-an-sum li[data-clear='false'] i {
+  background: none;
+  outline: 1px solid var(--signal);
+}
+
+.pv-an-sum li[data-clear='false'] em {
+  color: var(--signal);
+}
+
+.pv-an-sum em {
+  font-style: normal;
+  text-align: right;
+}
+
+/* Architecture: the colony's tree. */
+.pv-an-tree svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Vegetation: the patch. */
+.pv-an-tile {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  outline: 1px solid var(--rule);
+  cursor: crosshair;
+}
+
+/* Creatures: the state machine, as a row of states. */
+.pv-an-fsm {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 560px;
+  border: 1px solid var(--rule-strong);
+}
+
+.pv-an-fsm button {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-an-fsm button + button {
+  border-left: 1px solid var(--rule-strong);
+}
+
+.pv-an-fsm button span {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+}
+
+.pv-an-fsm button[aria-pressed='true'] {
+  background: var(--ui-title);
+  color: var(--pv-black);
+}
+
+.pv-an-fsm button[aria-pressed='true'] span {
+  color: var(--signal);
+}
+
+.pv-an-fsm-note {
+  max-width: 560px;
+  min-height: 4.5em;
+  margin: 0;
+  font-size: var(--text-micro);
+  line-height: 1.55;
+  color: var(--ui-text);
+}
+
+.pv-an-fsm-note b {
+  font-weight: 600;
+  color: var(--ui-title);
+}
+
+.pv-an-fsm-note em {
+  font-style: normal;
+  color: var(--ui-muted);
+}
+
+/* One question per system, one primary diagram, the rest secondary: the diagram takes the wide column, the question, rule and readout the
+   narrow one, with any small map at its foot. */
+.pv-an-inspect {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  gap: 56px;
+}
+
+.pv-an-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.pv-an-primary figure {
+  margin: 0;
+}
+
+.pv-an-question {
+  margin: 0 0 4px;
+  font-family: var(--heading);
+  font-size: clamp(1.15rem, 1.5vw, 1.4rem);
+  font-weight: 300;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--ui-title);
+}
+
+.pv-an-mini {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-an-mini figcaption {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-muted);
+}
+
+.pv-an-dome {
+  display: block;
+  flex: none;
+  max-width: 100%;
+  height: auto;
+}
+
+.pv-an-total {
+  margin: 4px 0 8px;
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+}
+
+.pv-an-total b {
+  font-family: var(--heading);
+  font-size: 1.6rem;
+  font-weight: 300;
+  color: var(--ui-title);
+}
+
+.pv-an-sum li {
+  cursor: pointer;
+}
+
+.pv-an-sum li[data-on='true'] span {
+  color: var(--signal);
+}
+
+.pv-an-lineage {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.pv-an-species {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 1180px) {
+  .pv-an-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pv-an-inspect {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 820px) {
+  .pv-an-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pv-an-tabs button em {
+    display: none;
+  }
+
+  .pv-an-head {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-an-lab {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 820px) {
+  .pv-weekline li {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 10px 16px;
+  }
+
+  .pv-weekline .pv-week-mark {
+    display: none;
+  }
+
+  .pv-wk-led {
+    grid-column: 2;
+  }
+}
+
+/* Notes & source: one quiet line of links under the versions, separated by hairlines, no second heading level. */
+.pv-notes-src .pv-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-notes-src .pv-refs li + li {
+  border-left: 1px solid var(--rule);
+}
+
+.pv-notes-src .pv-refs a {
+  display: inline-flex;
+  gap: 6px;
+  padding: 2px 16px;
+  border: 0;
+  font-size: var(--text-ui);
+  color: var(--ui-muted);
+}
+
+.pv-notes-src .pv-refs li:first-child a {
+  padding-left: 0;
+}
+
+.pv-notes-src .pv-refs a span {
+  color: var(--ui-muted);
+}
+
+.pv-notes-src .pv-refs a:hover {
+  color: var(--ui-title);
+}
+
+.pv-notes-src .pv-refs a:hover span {
+  color: var(--signal);
+}
+
+/* Captions under the inspections' figures: small, mono, quiet (never body size). */
+.pv-an-primary figcaption {
+  margin: 8px 0 0;
+  max-width: 600px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+
+/* The page below Formation scrolls up over the fixed island (it is never moved by script): its top is a soft fall-off, not a hard edge. */
+.pv-project-body {
+  position: relative;
+}
+
+.pv-project-body::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -180px;
+  height: 180px;
+  background: linear-gradient(to bottom, rgba(10, 10, 10, 0), rgba(10, 10, 10, 0.55) 55%, var(--pv-black));
+  pointer-events: none;
+}
+
+/* Anatomy's notes: the question, one sentence of rule, the data as a quiet line, then what the reader is pointing at. The Lab link sits at
+   the foot of the notes column, the same place for every system. */
+.pv-an-rule p {
+  margin: 0;
+  font-size: var(--text-ui);
+  line-height: 1.55;
+  color: var(--ui-text);
+}
+
+.pv-an-data {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+
+.pv-an-data span {
+  margin-right: 6px;
+  text-transform: uppercase;
+  letter-spacing: var(--track-caps);
+  color: var(--ui-text);
+}
+
+.pv-an-notes {
+  gap: 16px;
+}
+
+.pv-an-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  gap: 56px;
+  margin-top: 28px;
+}
+
+.pv-an-foot .pv-an-lab {
+  grid-column: 2;
+}
+
+@media (max-width: 1180px) {
+  .pv-an-foot {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-an-foot .pv-an-lab {
+    grid-column: 1;
+  }
+}
+
+/* ───────── Explore: photography ───────── */
+
+/* While composing: the world previewed in black and white; the card slot, drawers and legends out of the way (the rail stays, for the views
+   and the clock). The plate dims what lies outside it; the pointer passes through it to the world. */
+html[data-photo='on'] .pv-world canvas {
+  filter: grayscale(1) contrast(1.06);
+}
+
+.pv-explore[data-photo='true'] > :not(.pv-photo):not(.pv-rail),
+html[data-photo='on'] .pv-world .project03 .data-legend,
+html[data-photo='on'] .pv-world .project03 .organism-card,
+html[data-photo='on'] .pv-world .project03 .creature-card {
+  display: none;
+}
+
+.pv-photo {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.pv-photo-plate {
+  position: absolute;
+  box-shadow: 0 0 0 100vmax rgba(10, 10, 10, 0.62);
+  outline: 1px solid rgba(233, 230, 223, 0.55);
+}
+
+.pv-photo-third {
+  position: absolute;
+  background: rgba(233, 230, 223, 0.18);
+}
+
+.pv-photo-third.v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.pv-photo-third.h {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.pv-photo-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 74px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.pv-photo-aspects {
+  display: flex;
+  gap: 4px;
+}
+
+.pv-photo-aspects button {
+  padding: 4px 9px;
+  border: 1px solid var(--rule-strong);
+  background: rgba(10, 10, 10, 0.6);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-text);
+  cursor: pointer;
+}
+
+.pv-photo-aspects button[aria-pressed='true'] {
+  border-color: var(--ui-title);
+  background: var(--ui-title);
+  color: var(--pv-black);
+}
+
+.pv-photo-shutter {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--ui-title);
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.5);
+  cursor: pointer;
+}
+
+.pv-photo-shutter i {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--ui-title);
+  transition: transform 0.15s ease;
+}
+
+.pv-photo-shutter:hover i {
+  background: var(--signal);
+}
+
+.pv-photo-shutter:active i {
+  transform: scale(0.88);
+}
+
+.pv-photo-hint {
+  position: absolute;
+  top: 68px;
+  left: 50%;
+  margin: 0;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+}
+
+.pv-photo-result {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: rgba(10, 10, 10, 0.88);
+  pointer-events: auto;
+}
+
+.pv-photo-result img {
+  max-width: min(80vw, 1100px);
+  max-height: 72vh;
+  outline: 1px solid var(--rule-strong);
+}
+
+.pv-photo-result-actions {
+  display: flex;
+  gap: 24px;
+  align-items: baseline;
+}
+
+/* ───────── Project: one divider hierarchy ─────────
+   A section opens with one full rule (Anatomy too, after the island), its number and title. Inside a section the parts are set apart by
+   space and their small titles, not by more full rules; lists keep only faint hairlines between their rows. */
+.pv-project-body > .pv-sec:first-child {
+  border-top: 1px solid var(--rule);
+}
+
+.pv-project-body .pv-sub {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.pv-project-body .pv-sub + .pv-sub {
+  margin-top: clamp(72px, 10vh, 112px);
+}
+
+.pv-project-body .pv-sub-title {
+  margin-bottom: 6px;
+}
+
+.pv-weekline,
+.pv-versions {
+  border-top: 1px solid rgba(233, 230, 223, 0.06);
+}
+
+.pv-weekline li,
+.pv-versions li {
+  border-bottom-color: rgba(233, 230, 223, 0.06);
+}
+
+.pv-an-tabs {
+  border-top: 0;
+}
+
+html[data-photo='on'] .pv-world canvas {
+  filter: grayscale(1) brightness(0.92) contrast(1.02);
+}
+
+.pv-photo-result-actions a,
+.pv-photo-result-actions button {
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-title);
+  cursor: pointer;
+}
+
+.pv-photo-result-actions a {
+  border-bottom-color: var(--signal);
+}
+
+.pv-photo-result-actions button {
+  color: var(--ui-muted);
+}
+
+/* Formation's island fades into the page as Formation scrolls away (ProjectPage.tsx sets --fm-fade). */
+.pv-on-project .pv-world .world-canvas {
+  opacity: var(--fm-fade, 1);
+}
+
+/* ───────── Anatomy exhibits: one structure ───────── */
+
+/* The head: title, one line, and the Lab action at the right, the same place for every system that has one. */
+.pv-an-head {
+  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) auto;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.pv-an-labbtn {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  justify-self: end;
+  padding: 9px 14px;
+  border: 1px solid var(--rule-strong);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ui-title);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.pv-an-labbtn span {
+  color: var(--signal);
+}
+
+.pv-an-labbtn:hover {
+  border-color: var(--ui-title);
+  background: rgba(233, 230, 223, 0.04);
+}
+
+/* The spine: Input → Process → Result across the exhibit, the result in the signal colour. */
+.pv-an-flow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr);
+  align-items: start;
+  margin: 0 0 8px;
+  padding: 14px 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.pv-an-flow li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pv-an-flow-k {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-an-flow li[data-result] .pv-an-flow-k {
+  color: var(--signal);
+}
+
+.pv-an-flow-v {
+  font-size: var(--text-ui);
+  line-height: 1.45;
+  color: var(--ui-text);
+}
+
+.pv-an-flow-arrow {
+  align-self: center;
+  font-family: var(--mono);
+  color: var(--ui-muted);
+  text-align: center;
+}
+
+.pv-an-inspect {
+  row-gap: 24px;
+}
+
+@media (max-width: 1180px) {
+  .pv-an-head {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-an-labbtn {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 820px) {
+  .pv-an-flow {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .pv-an-flow-arrow {
+    display: none;
+  }
+}
+
+/* ───────── Explore: the camera (refined) ───────── */
+
+.pv-photo-plate {
+  outline: 1px solid rgba(233, 230, 223, 0.35);
+}
+
+/* The thirds in the signal red, faint: a guide, not a grid. */
+.pv-photo-third {
+  background: rgba(255, 31, 31, 0.32);
+}
+
+.pv-photo-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 0 solid var(--ui-title);
+}
+
+.pv-photo-corner.tl { left: -1px; top: -1px; border-left-width: 2px; border-top-width: 2px; }
+.pv-photo-corner.tr { right: -1px; top: -1px; border-right-width: 2px; border-top-width: 2px; }
+.pv-photo-corner.bl { left: -1px; bottom: -1px; border-left-width: 2px; border-bottom-width: 2px; }
+.pv-photo-corner.br { right: -1px; bottom: -1px; border-right-width: 2px; border-bottom-width: 2px; }
+
+.pv-photo-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  animation: pv-photo-flash 0.32s ease-out forwards;
+}
+
+@keyframes pv-photo-flash {
+  from { opacity: 0.85; }
+  to { opacity: 0; }
+}
+
+.pv-photo-hint {
+  display: none;
+}
+
+/* The moment the photograph will record, above the plate's corner. */
+.pv-photo-moment {
+  position: absolute;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+}
+
+/* Under the plate: the proportion at the left, the shutter in the middle, the way out at the right. */
+.pv-photo-bar {
+  bottom: auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 28px;
+  width: min(560px, 90vw);
+  transform: translateX(-50%);
+}
+
+.pv-photo-aspects {
+  justify-self: start;
+}
+
+.pv-photo-close {
+  justify-self: end;
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-photo-close:hover {
+  color: var(--ui-title);
+}
+
+/* The review: the photograph, the moment it records, and the choice: keep it (primary), retake, or close the camera. */
+.pv-photo-result figure {
+  margin: 0;
+}
+
+.pv-photo-result figcaption {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+}
+
+.pv-photo-result-actions {
+  align-items: center;
+  gap: 22px;
+}
+
+.pv-photo-result-actions .pv-photo-keep {
+  padding: 10px 18px;
+  border: 0;
+  background: var(--ui-title);
+  color: var(--pv-black);
+}
+
+.pv-photo-result-actions .pv-photo-keep:hover {
+  background: #fff;
+}
+
+/* The camera's entry on the rail: a small mark and its name. */
+.pv-rail-camera {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.pv-rail-camera svg {
+  flex: none;
+}
+
+/* Lab cards: one preview frame for all four (the same proportion, the figure centred in it), the name over one line of what it is, what to
+   try, and the entry action at the same place at the foot of every card. */
+.pv-lab-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pv-lab-cards a {
+  gap: 8px;
+  padding: 18px 20px 20px;
+}
+
+.pv-lab-preview {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  margin-bottom: 10px;
+  padding: 10px;
+  overflow: hidden;
+  background: rgba(233, 230, 223, 0.02);
+}
+
+.pv-lab-preview svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pv-lab-name {
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.pv-lab-text {
+  font-size: var(--text-ui);
+  min-height: 3em;
+}
+
+.pv-lab-tries {
+  margin: 2px 0 14px;
+}
+
+.pv-lab-go {
+  align-self: flex-start;
+  padding: 7px 12px;
+  border: 1px solid var(--rule-strong);
+  color: var(--ui-title);
+}
+
+.pv-lab-go span {
+  color: var(--signal);
+}
+
+.pv-lab-cards a:hover .pv-lab-go {
+  border-color: var(--ui-title);
+  color: var(--ui-title);
+}
+
+@media (max-width: 1180px) {
+  .pv-lab-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .pv-lab-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ───────── Anatomy: five exhibits, one question each ───────── */
+
+.pv-an-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+/* What to choose, above the figure: plain words, one pressed. */
+.pv-an-chooser {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.pv-an-chooser button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 6px 12px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: none;
+  font-size: var(--text-ui);
+  color: var(--ui-text);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.pv-an-chooser button[data-quiet] {
+  font-size: var(--text-micro);
+  padding: 4px 10px;
+}
+
+.pv-an-chooser button em {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-muted);
+}
+
+.pv-an-chooser button:hover {
+  border-color: var(--ui-muted);
+}
+
+.pv-an-chooser button[aria-pressed='true'] {
+  border-color: var(--ui-title);
+  background: var(--ui-title);
+  color: var(--pv-black);
+}
+
+.pv-an-chooser button[aria-pressed='true'] em {
+  color: rgba(10, 10, 10, 0.6);
+}
+
+.pv-an-chooser-gap {
+  width: 18px;
+}
+
+.pv-an-chooser-name {
+  margin: 0 8px;
+  font-size: var(--text-ui);
+  color: var(--ui-title);
+}
+
+.pv-an-chooser-name em {
+  font-style: normal;
+  color: var(--ui-muted);
+}
+
+/* The legend under a figure: a mark and what it means, on one line. */
+.pv-an-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin: 0;
+  font-size: var(--text-micro);
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+
+.pv-an-key span {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pv-an-key i {
+  flex: none;
+  display: inline-block;
+  width: 18px;
+  height: 8px;
+}
+
+.pv-an-key .k-land { background: rgba(233, 230, 223, 0.25); border-top: 1px solid var(--ui-title); }
+.pv-an-key .k-red { height: 0; border-top: 2px solid var(--signal); }
+.pv-an-key .k-light { background: linear-gradient(to right, #141414, #ECE9E2); }
+.pv-an-key .k-flow { height: 4px; background: #3E7A7B; box-shadow: inset 6px 0 0 #E9E6DF; }
+.pv-an-key .k-lake { background: #2C5A5C; }
+.pv-an-key .k-ring { width: 8px; height: 8px; border: 1px solid var(--ui-title); border-radius: 50%; }
+.pv-an-key .k-contour { background: #3a3a3a; border-top: 1px solid #787878; }
+.pv-an-key .k-ramp { background: linear-gradient(to right, #1a1a1a, #929292); }
+.pv-an-key .k-redline { background: none; border: 1.5px solid var(--signal); }
+.pv-an-key .k-marks { width: 10px; height: 10px; border: 1px solid #F3EFE5; border-radius: 50%; }
+
+/* In the side column: what the figure means, in a few sentences. */
+.pv-an-say {
+  margin: 0;
+  font-size: var(--text-ui);
+  line-height: 1.6;
+  color: var(--ui-text);
+}
+
+.pv-an-mini-readout {
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-an-mini-readout > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.pv-an-mini-readout dt {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-data);
+  color: var(--ui-muted);
+}
+
+.pv-an-mini-readout dd {
+  margin: 0;
+  font-size: var(--text-micro);
+  color: var(--ui-text);
+}
+
+/* Water's descent: the chosen water's way, step by step down. */
+.pv-an-descent {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 1px solid var(--rule-strong);
+}
+
+.pv-an-descent li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0 6px 14px;
+  font-size: var(--text-micro);
+  color: var(--ui-text);
+  position: relative;
+}
+
+.pv-an-descent li::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 11px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3E7A7B;
+}
+
+.pv-an-descent li[data-red='true']::before {
+  background: var(--signal);
+}
+
+.pv-an-descent em {
+  font-style: normal;
+  font-family: var(--mono);
+  color: var(--ui-muted);
+  white-space: nowrap;
+}
+
+.pv-an-rule-graph,
+.pv-an-day {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.pv-an-day {
+  cursor: pointer;
+}
+
+@media (max-width: 1180px) {
+  .pv-an-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* The camera: a printer's black and white (deep shadows, held highlights), a clearly visible red grid, the shutter centred. */
+html[data-photo='on'] .pv-world canvas {
+  filter: grayscale(1) contrast(1.45) brightness(0.9);
+  transition: filter 0.6s ease;
+}
+
+.pv-photo-third {
+  background: rgba(255, 31, 31, 0.62);
+}
+
+.pv-photo-bar {
+  align-items: center;
+}
+
+.pv-photo-shutter {
+  justify-self: center;
+  align-self: center;
+  padding: 0;
+  margin: 0;
+  line-height: 0;
+}
+
+.pv-photo-shutter i {
+  display: block;
+  margin: 0;
+}
+
+.pv-photo-intro {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  padding: 10px 16px;
+  background: rgba(10, 10, 10, 0.72);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-title);
+  white-space: nowrap;
+  animation: pv-photo-intro 2.8s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes pv-photo-intro {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.pv-photo-note {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-muted);
+}
+
+/* ── WORLD ANATOMY: one exhibit layout for all five (anatomy/common.tsx › Exhibit). Controls; one large stage with its legend; an optional narrow
+   column; the causal chain beneath, input → rule → result. ── */
+.pv-an-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.pv-an-head {
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  align-items: end;
+  margin-bottom: 28px;
+}
+
+.pv-an-head .pv-an-q {
+  margin: 10px 0 0;
+  font-size: clamp(22px, 2.2vw, 30px);
+  line-height: 1.2;
+  color: var(--ui-title);
+  max-width: 22ch;
+}
+
+.pv-ex {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pv-ex-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  align-items: center;
+}
+
+.pv-ex-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--rule);
+}
+
+.pv-ex-seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 0;
+  border-right: 1px solid var(--rule);
+  background: none;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+
+.pv-ex-seg button:last-child {
+  border-right: 0;
+}
+
+.pv-ex-seg button:hover {
+  color: var(--ui-title);
+}
+
+.pv-ex-seg button[aria-pressed='true'] {
+  background: var(--ui-title);
+  color: var(--pv-black);
+}
+
+.pv-ex-seg button span {
+  font-family: var(--mono);
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.pv-ex-seg button[aria-pressed='true'] span {
+  color: var(--signal, #ff1f1f);
+  opacity: 1;
+}
+
+.pv-ex-play {
+  padding: 9px 14px;
+  border: 1px solid var(--signal, #ff1f1f);
+  background: none;
+  color: var(--ui-title);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pv-ex-play[aria-pressed='true'] {
+  background: var(--signal, #ff1f1f);
+}
+
+.pv-ex-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.pv-ex-body[data-aside] {
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+
+.pv-ex-stage {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pv-ex-fill {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pv-ex-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 32px;
+  align-items: start;
+}
+
+.pv-ex-split[data-even] {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.pv-ex-map,
+.pv-ex-fig,
+.pv-ex-panel {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pv-ex-map figcaption,
+.pv-ex-fig figcaption {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ui-muted);
+  max-width: 44ch;
+}
+
+.pv-ex-triptych {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.pv-ex-panel figcaption {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-title);
+}
+
+.pv-ex-panel svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #141413;
+  cursor: crosshair;
+}
+
+.pv-ex-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+
+.pv-ex-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pv-ex-key i {
+  display: inline-block;
+  width: 16px;
+  height: 10px;
+}
+
+.pv-ex-hover {
+  margin: 0;
+  min-height: 1.5em;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+
+.pv-ex-hover[data-on] {
+  color: var(--ui-title);
+}
+
+.pv-ex-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.pv-ex-aside-k {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-ex-aside-say {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ui-title);
+}
+
+.pv-ex-profile {
+  display: block;
+  max-width: 100%;
+}
+
+.pv-ex-chain {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.pv-ex-chain li {
+  position: relative;
+  padding: 18px 28px 0 0;
+}
+
+.pv-ex-chain li + li {
+  padding-left: 28px;
+  border-left: 1px solid var(--rule);
+}
+
+.pv-ex-chain li + li::before {
+  content: '→';
+  position: absolute;
+  left: -7px;
+  top: 14px;
+  padding: 0 0 2px;
+  background: var(--pv-black);
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.pv-ex-chain span {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-ex-chain li[data-result] span {
+  color: var(--signal, #ff1f1f);
+}
+
+.pv-ex-chain p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ui-title);
+}
+
+/* Living Architecture's rule, in rows. */
+.pv-ex-rule {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pv-ex-inputs,
+.pv-ex-outputs {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-ex-inputs li {
+  display: grid;
+  grid-template-columns: 110px 120px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+  color: var(--ui-title);
+}
+
+.pv-ex-inputs em {
+  font-style: normal;
+  color: var(--ui-muted);
+}
+
+.pv-ex-dial {
+  position: relative;
+  height: 6px;
+  background: rgba(233, 230, 223, 0.1);
+}
+
+.pv-ex-dial::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: rgba(233, 230, 223, 0.5);
+}
+
+.pv-ex-dial b {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--ui-title);
+}
+
+.pv-ex-outputs li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.pv-ex-outputs span {
+  font-size: 15px;
+  color: var(--ui-title);
+}
+
+.pv-ex-outputs span em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ui-muted);
+  margin-left: 6px;
+}
+
+.pv-ex-outputs b {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 15px;
+  color: var(--ui-muted);
+}
+
+.pv-ex-outputs b[data-up] {
+  color: var(--signal, #ff1f1f);
+}
+
+.pv-ex-outputs b[data-down] {
+  color: var(--ui-title);
+}
+
+.pv-ex-outputs p {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+
+.pv-ex-outputs p i {
+  font-style: normal;
+  padding: 2px 7px;
+  border: 1px solid var(--rule);
+}
+
+.pv-ex-outputs p i[data-up] {
+  border-color: rgba(255, 31, 31, 0.6);
+  color: var(--ui-title);
+}
+
+/* Creatures: the state, named over the stage. */
+.pv-ex-state {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border: 1px solid;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+
+.pv-ex-state b {
+  font-weight: 400;
+  color: var(--ui-title);
+  text-transform: uppercase;
+  letter-spacing: var(--track-caps);
+}
+
+@media (max-width: 1180px) {
+  .pv-ex-body[data-aside],
+  .pv-ex-split,
+  .pv-ex-split[data-even] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 820px) {
+  .pv-ex-triptych,
+  .pv-ex-chain {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pv-ex-chain li + li {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .pv-ex-chain li + li::before {
+    display: none;
+  }
+}
+
+/* ── THE FIELD CAMERA (round 12): the world in its own colours unless black and white is chosen; a quiet viewfinder — fine white thirds that
+   can be turned off, red only for the corners and the focus mark; a shutter that closes over the frame for an instant. ── */
+html[data-photo='on'] .pv-world canvas {
+  filter: none;
+  transition: filter 0.4s ease;
+}
+
+html[data-photo='on'][data-photo-film='mono'] .pv-world canvas {
+  filter: grayscale(1) contrast(1.35) brightness(0.92);
+}
+
+.pv-photo-third {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.pv-photo-plate {
+  box-shadow: 0 0 0 100vmax rgba(8, 8, 8, 0.5);
+  outline: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.pv-photo-focus {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border: 1px solid rgba(255, 31, 31, 0.9);
+  pointer-events: none;
+}
+
+.pv-photo-focus::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  background: #ff1f1f;
+}
+
+.pv-photo-flash {
+  background: #000;
+  animation: pv-photo-curtain 0.32s ease-out forwards;
+}
+
+@keyframes pv-photo-curtain {
+  0% { opacity: 0; }
+  20% { opacity: 0.92; }
+  100% { opacity: 0; }
+}
+
+.pv-photo-settings {
+  display: flex;
+  gap: 10px;
+  justify-self: start;
+}
+
+.pv-photo-intro {
+  background: rgba(10, 10, 10, 0.6);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 12px;
+}
+
+/* While the arrival introduction is open, the legend and creature card that share its slot step back (they return when it is closed). */
+.pv-site:has(.pv-explore[data-intro]) .pv-world .project03 .data-legend,
+.pv-site:has(.pv-explore[data-intro]) .pv-world .project03 .creature-card {
+  visibility: hidden;
+}
+
+.pv-ex-context {
+  padding: 9px 14px;
+  border: 1px solid var(--rule);
+  font-size: 13px;
+  color: var(--ui-muted);
+}
+
+/* Formation's clean cut between two distant shots (formation.ts › dip): the island fades to black and back. */
+.pv-world[data-dipping] .world-canvas {
+  transition: opacity 0.45s ease;
+}
+
+.pv-world[data-dip] .world-canvas {
+  opacity: 0 !important;
+}
+
+/* The creature card's species profile (creatureCam.ts › CREATURE_PROFILE): set apart from what it is doing now. */
+.project03 .creature-card-profile {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+  opacity: 0.85;
+}
+
+/* Saved views (SavedDrawer.tsx): the shared sign-in and Reset · Save · Load controls, set into the drawer's type and colours. */
+.pv-saved {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--ui-title);
+}
+
+.pv-saved-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ui-muted);
+}
+
+.pv-saved .auth-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pv-saved button {
+  font: inherit;
+  color: var(--ui-title);
+  background: none;
+  border: 1px solid var(--rule);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.pv-saved button:hover {
+  border-color: var(--ui-title);
+}
+
+.pv-saved .auth-error {
+  color: #ff1f1f;
+}
+
+/* The account entry in the site's navigation (AccountMenu.tsx): quiet, the links' own type; its menu a small dark card under it. */
+.pv-account {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 52px;
+}
+
+.pv-account-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-account-button:hover,
+.pv-account-button[aria-expanded='true'] {
+  color: var(--ui-title);
+}
+
+.pv-account-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px 0;
+  background: #0b0b0b;
+  border: 1px solid var(--rule);
+}
+
+.pv-account-menu a,
+.pv-account-menu button {
+  padding: 8px 14px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--ui-title);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pv-account-menu a:hover,
+.pv-account-menu button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pv-account-menu em {
+  margin-left: 6px;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ui-muted);
+}
+
+.pv-account-name {
+  margin: 0;
+  padding: 4px 14px 8px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--ui-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 240px;
+}
+
+.pv-account-error {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  margin: 0;
+  max-width: 260px;
+  font-size: 11px;
+  color: #ff1f1f;
+}
+
+/* No grey between pages (round 16): the document under the site was the exercises' --field grey (#151515), and it showed through whenever the world
+   faded (paused behind Project, mounting on a first visit) or a page was swapping. On the site everything under the pages is black. */
+html:has(.pv-site),
+body:has(.pv-site),
+#root:has(.pv-site),
+.pv-site,
+.pv-world,
+.pv-world .project03,
+.pv-world .world-canvas-wrap,
+.pv-world .world-canvas {
+  background: #000;
+}
+
+/* The plant being read, in the Vegetation drawer (round 17). */
+.pv-plant-card {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #ff1f1f;
+}
+
+.pv-plant-card-tag {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-plant-card-title {
+  margin: 4px 0 10px;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ui-title);
+}
+
+.pv-plant-card dl {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.pv-plant-card dt {
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-plant-card dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ui-title);
+}
+
+/* ── FIELD EXPEDITION (FieldExpedition.tsx): a card at the upper left, clear of the creature card and the legend below; the visit's field notes. ── */
+.pv-explore .pv-expedition {
+  position: absolute;
+  top: calc(var(--pv-nav-h) + 16px);
+  bottom: auto;
+  left: var(--pv-edge);
+  z-index: 6;
+  width: min(340px, calc(100vw - 2 * var(--pv-edge)));
+  pointer-events: auto;
+}
+
+.pv-expedition-list {
+  margin: 10px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-expedition-list button {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-expedition-list button:hover,
+.pv-expedition-list li[data-at] button {
+  color: var(--ui-title);
+}
+
+.pv-expedition-list li[data-done] span {
+  color: #ff1f1f;
+}
+
+.pv-expedition-miss {
+  color: #ff1f1f;
+}
+
+.pv-caption-expedition {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-title);
+  border-bottom: 1px solid #ff1f1f;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.pv-notes {
+  position: fixed;
+  inset: calc(var(--pv-nav-h) + 12px) var(--pv-edge) 90px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  background: rgba(6, 6, 6, 0.96);
+  border: 1px solid var(--rule);
+  overflow: auto;
+}
+
+.pv-notes-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-title);
+}
+
+.pv-notes-head p {
+  margin: 0;
+}
+
+.pv-notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-notes-grid button {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ui-title);
+  font: inherit;
+}
+
+.pv-notes-grid img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border: 1px solid var(--rule);
+}
+
+.pv-notes-grid button:hover img {
+  border-color: #ff1f1f;
+}
+
+.pv-notes-grid span {
+  font-size: 13px;
+}
+
+.pv-notes-grid em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ui-muted);
+}
+
+.pv-notes-large {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+
+.pv-notes-large img {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  align-self: flex-start;
+}
+
+.pv-notes-large figcaption {
+  font-size: 13px;
+  color: var(--ui-muted);
+}
+
+.pv-notes-large figcaption b {
+  color: var(--ui-title);
+  font-weight: 500;
+}
+
+/* Round 19: the arrival card's three ways in and the expedition's actions wrap onto a second line instead of running out of their card; and neither card
+   is wider than the window allows. */
+.pv-intro .pv-card-actions,
+.pv-expedition .pv-card-actions {
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  row-gap: 10px;
+}
+
+.pv-intro .pv-card-actions > *,
+.pv-expedition .pv-card-actions > * {
+  white-space: nowrap;
+}
+
+.pv-card.pv-intro {
+  max-width: min(420px, calc(100vw - 2 * var(--pv-edge)));
+}
+
+.pv-explore .pv-expedition {
+  max-height: calc(100vh - var(--pv-nav-h) - var(--rail) - 60px);
+  overflow-y: auto;
+}
+
+/* ── PRESENTER MODE (Present.tsx): black, quiet, large enough to read from a step back; the red only for the current stop and the action. ── */
+.pv-present {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 22px clamp(20px, 5vw, 72px);
+  background: #000;
+  color: var(--ui-title);
+  overflow-y: auto;
+}
+
+.pv-present-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-present-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-present-progress button {
+  padding: 5px 9px;
+  border: 1px solid var(--rule);
+  background: none;
+  font: inherit;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-present-progress button[data-done] {
+  color: var(--ui-title);
+}
+
+.pv-present-progress button[aria-current='step'] {
+  border-color: #ff1f1f;
+  color: var(--ui-title);
+}
+
+.pv-present-stop {
+  align-self: center;
+  max-width: 900px;
+  padding: 32px 0;
+  animation: pv-rise 0.4s var(--pv-ease) both;
+}
+
+.pv-present-n {
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: #ff1f1f;
+}
+
+.pv-present-stop h1 {
+  margin: 0 0 16px;
+  font-size: clamp(30px, 3.6vw, 52px);
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.pv-present-idea {
+  margin: 0 0 26px;
+  max-width: 46ch;
+  font-size: clamp(18px, 1.6vw, 22px);
+  line-height: 1.45;
+  color: var(--ui-title);
+}
+
+.pv-present-say {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 62ch;
+  padding-left: 16px;
+  border-left: 1px solid var(--rule);
+}
+
+.pv-present-say p {
+  margin: 0;
+  font-size: clamp(16px, 1.3vw, 19px);
+  line-height: 1.55;
+  color: rgba(233, 230, 223, 0.86);
+}
+
+.pv-present-action {
+  display: flex;
+  gap: 14px;
+  margin: 26px 0 0;
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ui-title);
+}
+
+.pv-present-action span {
+  flex: none;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: #ff1f1f;
+  padding-top: 3px;
+}
+
+.pv-present-open {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-top: 22px;
+}
+
+.pv-present-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  color: var(--ui-muted);
+}
+
+.pv-present-nav button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.pv-present-pill {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 90;
+  padding: 7px 12px;
+  border: 1px solid #ff1f1f;
+  background: rgba(0, 0, 0, 0.85);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-title);
+  text-decoration: none;
+}
+
+/* ── LIVE PRESENTATION (Present.tsx, round 20): the opening screen, and the cue over the live site. ── */
+.pv-present-intro {
+  align-self: center;
+  justify-self: start;
+  grid-row: 1 / -1;
+  max-width: 720px;
+  animation: pv-rise 0.6s var(--pv-ease) both;
+}
+
+.pv-present-kicker {
+  margin: 0 0 14px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: #ff1f1f;
+}
+
+.pv-present-intro h1 {
+  margin: 0 0 18px;
+  font-size: clamp(44px, 6vw, 88px);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.pv-present-lede {
+  margin: 0 0 32px;
+  max-width: 44ch;
+  font-size: clamp(17px, 1.5vw, 21px);
+  line-height: 1.5;
+  color: rgba(233, 230, 223, 0.86);
+}
+
+.pv-present-start {
+  padding: 12px 20px;
+  border: 1px solid #ff1f1f;
+  background: none;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-title);
+  cursor: pointer;
+}
+
+.pv-present-start:hover {
+  background: #ff1f1f;
+}
+
+.pv-present-note {
+  margin: 18px 0 0;
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+
+.pv-cue,
+.pv-cue-folded {
+  position: fixed;
+  z-index: 95;
+  color: var(--ui-title);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-top: 1px solid #ff1f1f;
+  animation: pv-rise 0.4s var(--pv-ease) both;
+}
+
+.pv-cue {
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px 16px 10px;
+}
+
+/* Placed clear of each page's own controls: Home's text sits left, Formation's stage bar runs along the bottom, Explore keeps its rail low, its cards
+   left and its drawers right, a Lab its panel right. */
+.pv-cue[data-page='home'],
+.pv-cue-folded[data-page='home'] {
+  right: 28px;
+  bottom: 28px;
+}
+
+.pv-cue[data-page='project'],
+.pv-cue-folded[data-page='project'] {
+  right: 24px;
+  top: 76px;
+}
+
+.pv-cue[data-page='explore'],
+.pv-cue-folded[data-page='explore'],
+.pv-cue[data-page='open'],
+.pv-cue-folded[data-page='open'] {
+  left: 50%;
+  top: 72px;
+  transform: translateX(-50%);
+}
+
+.pv-cue[data-page='explore'],
+.pv-cue[data-page='open'] {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.pv-cue-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.pv-cue-head b,
+.pv-cue-folded b {
+  font-weight: 400;
+  color: #ff1f1f;
+}
+
+.pv-cue-tools {
+  display: flex;
+  gap: 12px;
+}
+
+.pv-cue-tools button,
+.pv-cue-nav button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-cue-tools button:hover,
+.pv-cue-nav button:hover:not(:disabled) {
+  color: var(--ui-title);
+}
+
+.pv-cue-idea {
+  margin: 0 0 6px;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.pv-cue-say {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(233, 230, 223, 0.82);
+}
+
+.pv-cue-show {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ui-muted);
+}
+
+.pv-cue-show span {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: #ff1f1f;
+  padding-top: 2px;
+}
+
+.pv-cue-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pv-cue-nav button {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.pv-cue-nav button:last-child {
+  text-align: right;
+  color: var(--ui-title);
+}
+
+.pv-cue-nav button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.pv-cue-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.pv-cue-dots i {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--ui-muted);
+}
+
+.pv-cue-dots i[data-done] {
+  background: var(--ui-muted);
+}
+
+.pv-cue-dots i[data-on] {
+  background: #ff1f1f;
+  border-color: #ff1f1f;
+}
+
+.pv-cue-folded {
+  padding: 7px 12px;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  cursor: pointer;
+}

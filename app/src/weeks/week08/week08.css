@@ -1,0 +1,331 @@
+/*
+ * Week 08 — rules specific to the Agents & Scale exercise. The shared
+ * instrument layer lives in ui/system.css (root class `ui-system`).
+ */
+
+/* Subtabs: numbered like the panel sections, as in Weeks 06 and 07. */
+.week08 .view-tabs .tab-index,
+.week08 .object-button .tab-index {
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+}
+
+.week08 .view-tabs button[aria-selected='true'] .tab-index,
+.week08 .object-button[aria-pressed='true'] .tab-index {
+  color: var(--ui-muted);
+}
+
+.week08 .explain-text,
+.week08 .explain-eq {
+  margin: 4px 0 0;
+}
+
+.week08 .explain-eq.is-quiet {
+  color: var(--ui-muted);
+}
+
+/* Object choice: a small grid of buttons, each numbered with its key. */
+.week08 .object-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.week08 .object-button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--ui-line, rgba(255, 255, 255, 0.16));
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.week08 .object-button:hover {
+  color: var(--ui-text);
+}
+
+.week08 .object-button[aria-pressed='true'] {
+  border-color: var(--ui-title);
+  color: var(--ui-title);
+}
+
+.week08 .viewpoints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+/* Dimension labels in the view. */
+.week08 .scale-label {
+  padding: 1px 5px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #e8e4d8;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.week08 .scale-label.is-faint {
+  color: #a39f92;
+}
+
+/* The ruler. */
+.week08 .scale-ladder {
+  width: 100%;
+  height: auto;
+  margin-top: 4px;
+}
+
+.week08 .scale-ladder text {
+  fill: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: 7px;
+}
+
+.week08 .scale-ladder .ladder-axis {
+  stroke: var(--ui-faint);
+  stroke-width: 0.6;
+}
+
+.week08 .scale-ladder .ladder-tick {
+  fill: var(--ui-faint);
+}
+
+.week08 .scale-ladder .ladder-mark circle {
+  fill: var(--ui-muted);
+}
+
+.week08 .scale-ladder .ladder-mark.is-selected circle {
+  fill: var(--ui-title);
+}
+
+.week08 .scale-ladder .ladder-mark.is-selected text {
+  fill: var(--ui-title);
+}
+
+.week08 .scale-ladder .ladder-camera line {
+  stroke: var(--signal, #8fb8ff);
+  stroke-width: 0.8;
+}
+
+.week08 .scale-ladder .ladder-camera text {
+  fill: var(--signal, #8fb8ff);
+}
+
+.week08 .scale-ladder .ladder-feature line {
+  stroke: var(--sediment, #d9a35a);
+  stroke-width: 0.8;
+}
+
+.week08 .scale-ladder .ladder-feature text {
+  fill: var(--sediment, #d9a35a);
+}
+
+/* Provisional / computed tags. */
+.week08 .scale-tag {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid var(--ui-faint);
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+.week08 .scale-tag.is-provisional {
+  border-color: var(--sediment, #d9a35a);
+  color: var(--sediment, #d9a35a);
+}
+
+.week08 .scale-tag.is-computed,
+.week08 .scale-tag.is-project {
+  border-color: var(--signal, #8fb8ff);
+  color: var(--signal, #8fb8ff);
+}
+
+.week08 .viewpoints .text-button[aria-pressed='true'] {
+  color: var(--ui-title);
+}
+
+/* The depth meter: the subject against the two poles, as a share of the view's height. */
+.week08 .depth-meter {
+  margin-top: 8px;
+}
+
+.week08 .depth-title {
+  margin: 0 0 4px;
+  color: var(--ui-muted);
+  font-size: var(--text-micro);
+}
+
+.week08 .depth-row {
+  display: grid;
+  grid-template-columns: 7.5em 1fr 7em;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: var(--text-micro);
+}
+
+.week08 .depth-name,
+.week08 .depth-value {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.week08 .depth-value {
+  text-align: right;
+}
+
+.week08 .depth-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.week08 .depth-bar i {
+  display: block;
+  height: 100%;
+  background: var(--ui-title);
+}
+
+.week08 .depth-row.is-front .depth-bar i {
+  background: #8a9d91;
+}
+
+.week08 .depth-row.is-back .depth-bar i {
+  background: #b69a80;
+}
+
+/* Wrappers that group controls for LEARN keep the section's spacing. */
+.week08 .panel-section-body > div[data-learn] {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.week08 .panel-section-body > div[data-learn] > .viewpoints,
+.week08 .panel-section-body > div[data-learn] > .explain-text,
+.week08 .panel-section-body > div[data-learn] > .explain-eq {
+  margin-top: 0;
+}
+
+.week08 .depth-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.week08 .mesh-table {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.week08 .mesh-row {
+  display: grid;
+  grid-template-columns: 5em 1fr auto;
+  gap: 8px;
+  color: var(--ui-faint);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+}
+
+.week08 .mesh-row.is-current {
+  color: var(--ui-title);
+}
+
+.week08 .mesh-row span:last-child {
+  text-align: right;
+}
+
+.week08 .inspect {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.week08 .inspect .depth-title {
+  margin: 0;
+}
+
+/* The shortcut strip: wraps instead of overflowing, and keeps clear of the readout line and the canvas edge. */
+.week08 .view-strip {
+  gap: 12px;
+}
+
+.week08 .view-strip-row {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.week08 .view-strip .readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+/* LEARN cards stay in the upper left for every step. */
+.week08 .learn-card.is-end {
+  left: var(--edge);
+  right: auto;
+}
+
+/* Species table: one row per species, one column per state. */
+.week08 .species-table,
+.week08 .compare-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.week08 .species-row,
+.week08 .compare-row {
+  display: grid;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.week08 .species-row {
+  grid-template-columns: minmax(6.5em, 1.6fr) repeat(4, minmax(0, 1fr)) minmax(2.8em, 1fr);
+}
+
+.week08 .compare-row {
+  grid-template-columns: minmax(5em, 1.5fr) repeat(5, minmax(3em, 1fr));
+}
+
+.week08 .species-row span:not(:first-child),
+.week08 .compare-row span:not(:first-child) {
+  text-align: right;
+}
+
+.week08 .species-row.is-head,
+.week08 .compare-row.is-head {
+  color: var(--ui-faint);
+}
+
+.week08 .species-row i {
+  color: var(--ui-faint);
+  font-style: normal;
+}
+
+.week08 .compare-table.is-stale {
+  opacity: 0.55;
+}

@@ -1,4 +1,5 @@
 import { sunAt } from '../project/sun.ts'
+import { sunDirection } from '../shared/sun.ts'
 import { clamp01, smoothstep } from '../project02/core.ts'
 import { LIFECYCLE, OBSERVATION_START, worldYears } from './livingTime.ts'
 import { landscapeHeight } from './terrain.ts'
@@ -98,7 +99,7 @@ export type EnvironmentState = {
   time: number
 }
 
-/** Haze distances are scaled by these (1 = clear air), set each frame; the camera rig applies them to its own fog. */
+/** Haze distances are scaled by these (1 = full haze; large = none, as in Clear weather), set each frame; the camera rig applies them to its own fog. */
 export const fogScale = { near: 1, far: 1 }
 /** How much the ground darkens when wet (0–1), for materials that want it. */
 export const wetness = { value: 0 }
@@ -415,6 +416,9 @@ function stepHydrology(dt: number, manualRain: number, manualHumidity: number) {
 
 const approach = (value: number, target: number, rate: number) => value + (target - value) * rate
 
+/** The lowest the sunlight's direction goes (degrees): below it the light only fades (see where the sun is set, below). */
+const SUNSET_LIGHT = 6
+
 /** What the active conditions ask of the sky: each adds to a shared cloud, rain, mist and humidity, taking the strongest where they overlap. */
 function skyFor(controls: EnvironmentControls) {
   const { conditions: c, adjust: a } = controls
@@ -423,7 +427,9 @@ function skyFor(controls: EnvironmentControls) {
   let mist = 0.02
   let humidity = 0.3
   if (c.overcast) {
-    cloud = 0.4 + 0.6 * a.overcast
+    // (Round 09: a light overcast was already 0.4 of full cloud, enough to take half the cast shadows and blur the rest, so a hazy day read as a
+    // day without shadows. Now it rises from 0.15: thin cloud keeps the shadows, a heavy one still takes them, as before.)
+    cloud = 0.15 + 0.85 * a.overcast
     mist += 0.04
     humidity = Math.max(humidity, 0.5 + 0.2 * a.overcast)
   }
@@ -481,7 +487,10 @@ export function stepEnvironment(dt: number) {
 
   const sun = sunAt(controls.hour, controls.noonElevation)
   const daylight = sun.daylight
-  state.sun.direction = sun.direction
+  // Round 09: the light's direction stops lowering at SUNSET_LIGHT degrees; its strength still fades with the true elevation (daylight, and the
+  // stage's own fade of the sun's share). Lower than that, level ground turned from the sun all at once (every face under the lit threshold),
+  // so the cast shadows vanished into one shade while the land stayed bright. Now they keep their shape and fade out with the light.
+  state.sun.direction = sun.elevation >= SUNSET_LIGHT ? sun.direction : sunDirection(sun.azimuth, SUNSET_LIGHT)
   state.sun.elevation = sun.elevation
   state.sun.daylight = daylight
   state.sun.direct = daylight * (1 - 0.8 * state.cloud) * (1 - 0.35 * state.mist)
@@ -500,8 +509,12 @@ export function stepEnvironment(dt: number) {
   state.windPhase.z += state.wind.z * push
 
   // Mist arrives as a low, valley-held haze (mist.ts); the distance fog only draws in a little.
-  fogScale.near = 1 - 0.2 * state.mist - 0.1 * state.rain
-  fogScale.far = 1 - 0.15 * state.mist - 0.15 * state.rain
+  // Distance fog belongs to the weather: in Clear (and Overcast, Wind) the air is clear at every distance and the terrain keeps its own colour.
+  // Mist and rain bring it in, in step with their strength; at full strength it is what it always was. The haze is pushed out by 1/weight.
+  const hazy = Math.min(1, state.mist + state.rain)
+  const reach = hazy < 0.002 ? 1e4 : 1 / hazy
+  fogScale.near = (1 - 0.2 * state.mist - 0.1 * state.rain) * reach
+  fogScale.far = (1 - 0.15 * state.mist - 0.15 * state.rain) * reach
   mistUniform.value = state.mist
   skyLit.value = 0.1 + 0.9 * daylight * (1 - 0.25 * state.cloud)
   // The water: the hydrology is stepped on the clock (or, for weather by hand, on real time), and what is drawn eases to it.

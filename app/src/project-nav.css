@@ -1,0 +1,159 @@
+/* Project navigation: versions, then a collapsible Labs group. Uses the shared instrument tokens. */
+.ui-system .project-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 190px;
+}
+
+.ui-system .project-nav-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.ui-system .project-nav-title {
+  margin: 0 0 2px;
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ui-system .project-nav-group > button[role='tab'],
+.ui-system .project-nav-menu > button[role='tab'] {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-system .project-nav-group > button[role='tab']:hover,
+.ui-system .project-nav-menu > button[role='tab']:hover {
+  color: var(--ui-title);
+}
+
+.ui-system .project-nav button[role='tab'][aria-selected='true'] {
+  color: var(--ui-title);
+  border-bottom-color: var(--ui-title);
+}
+
+.ui-system .project-nav-number {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-label);
+}
+
+.ui-system .project-nav-note {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ui-system .project-nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ui-system .project-nav-toggle .project-nav-title {
+  margin: 0;
+}
+
+.ui-system .project-nav-toggle:hover,
+.ui-system .project-nav-toggle[data-active='true'] {
+  color: var(--ui-title);
+}
+
+.ui-system .project-nav-toggle[data-active='true'] .project-nav-title {
+  color: var(--ui-title);
+}
+
+.ui-system .project-nav-count {
+  color: var(--ui-muted);
+  font-family: var(--mono);
+  font-size: var(--text-label);
+}
+
+.ui-system .project-nav-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding-left: 12px;
+  border-left: 1px solid var(--rule);
+}
+
+/* The versions as one compact row, and the page's description beneath it. */
+.ui-system .project-nav-versions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+
+.ui-system .project-nav-versions > button[role='tab'] {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: var(--text-body);
+  cursor: pointer;
+}
+
+.ui-system .project-nav-versions > button[role='tab']:hover {
+  color: var(--ui-title);
+}
+
+.ui-system .project-nav-description {
+  max-width: 300px;
+  margin: -4px 0 0;
+  color: var(--ui-muted);
+  font-size: var(--text-label);
+  line-height: 1.45;
+}
+
+/* The Architecture Lab's former variant selector (kept for the project page's own use). */
+.ui-system .alab-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 300px;
+}
+
+.ui-system .alab-select select {
+  max-width: 100%;
+}
+
+.ui-system .alab-note {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: var(--text-label);
+  line-height: 1.45;
+}

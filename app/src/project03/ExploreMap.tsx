@@ -3,7 +3,6 @@ import { LANDSCAPE, islandRadius, landscapeHeight } from './terrain.ts'
 import type { Navigation } from './LandscapeView.tsx'
 import type { RiverSystem } from './rivers.ts'
 import { WADE_DEPTH, type WaterSystem } from './water.ts'
-import { WATER_02 } from '../project02/materials.ts'
 
 const COMPACT = 150
 const EXPANDED = 300
@@ -13,12 +12,22 @@ const HIGH = 430
 /** Teleports stay this far inside the shoreline, in meters. */
 const EDGE_MARGIN = 10
 
+/**
+ * The map's palette follows the main visual (Graphic Diorama, Black Stage): olive on the low, vegetated ground, sand on the slopes, cream on the
+ * high bare rock, with thin ochre bands at fixed heights (as the rock beds are drawn), and the deep teal of its water.
+ */
 const RAMP: readonly (readonly [number, number, number])[] = [
-  [48, 46, 43],
-  [92, 88, 80],
-  [150, 144, 131],
-  [205, 199, 184],
+  [96, 104, 66],
+  [128, 134, 86],
+  [176, 168, 128],
+  [214, 196, 160],
+  [232, 218, 192],
+  [240, 230, 208],
 ]
+/** Heights (meters) of the ochre bands, and their half-width. */
+const BANDS = [140, 230, 320]
+const BAND_HALF = 5
+const OCHRE: readonly [number, number, number] = [196, 104, 62]
 
 function ramp(t: number): [number, number, number] {
   const scaled = Math.min(0.9999, Math.max(0, t)) * (RAMP.length - 1)
@@ -64,7 +73,13 @@ function paintTerrain(canvas: HTMLCanvasElement, size: number, water: WaterSyste
       const north = heights[Math.max(0, j - 1) * size + i]!
       // Light from the upper left, the way the island is lit.
       const shade = Math.max(0.55, Math.min(1.35, 1 + ((east - west) * 0.5 + (south - north) * 0.5) / (cell * 1.6)))
-      const [r, g, b] = ramp((h - LOW) / (HIGH - LOW))
+      let [r, g, b] = ramp((h - LOW) / (HIGH - LOW))
+      const band = BANDS.reduce((k, level) => Math.max(k, 1 - Math.abs(h - level) / BAND_HALF), 0)
+      if (band > 0) {
+        r += (OCHRE[0] - r) * band * 0.8
+        g += (OCHRE[1] - g) * band * 0.8
+        b += (OCHRE[2] - b) * band * 0.8
+      }
       image.data[o] = Math.min(255, r * shade)
       image.data[o + 1] = Math.min(255, g * shade)
       image.data[o + 2] = Math.min(255, b * shade)
@@ -81,14 +96,15 @@ const hex = (value: string): [number, number, number] => [
   Number.parseInt(value.slice(3, 5), 16),
   Number.parseInt(value.slice(5, 7), 16),
 ]
-const MAP_SHALLOW = hex(WATER_02.uWaterShallow)
-const MAP_DEEP = hex(WATER_02.uWaterDeep)
+// The main visual's deep teal (its water is not the 0.2 cobalt).
+const MAP_SHALLOW = hex('#2f6a72')
+const MAP_DEEP = hex('#173f47')
 
-/** Rivers as lines in the same cobalt, at least a pixel and a half wide so the narrow ones still read. */
+/** Rivers as lines in the same teal, at least a pixel and a half wide so the narrow ones still read. */
 function paintRivers(ctx: CanvasRenderingContext2D, size: number, rivers: RiverSystem) {
   const cell = LANDSCAPE.size / size
   const half = LANDSCAPE.size * 0.5
-  const mid = hex(WATER_02.uWaterMid)
+  const mid = hex('#2a6068')
   ctx.save()
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
@@ -145,17 +161,21 @@ export function ExploreMap({
   water,
   rivers,
   onTeleport,
+  kind = 'explore',
 }: {
   seed: number
   water: WaterSystem | null
   rivers: RiverSystem | null
   nav: MutableRefObject<Navigation>
   onTeleport: (x: number, z: number) => void
+  /** `explore`: a click stands the walker there (a small wedge marks where it is). `approach`: a click sends the elevated camera there (a large, soft disc marks the area it looks at). */
+  kind?: 'explore' | 'approach'
 }) {
   const [expanded, setExpanded] = useState(false)
   const [hover, setHover] = useState<string>('')
   const terrain = useRef<HTMLCanvasElement>(null)
   const marker = useRef<HTMLCanvasElement>(null)
+  const target = useRef<{ x: number; z: number } | null>(null)
   const size = expanded ? EXPANDED : COMPACT
 
   useEffect(() => {
@@ -170,6 +190,30 @@ export function ExploreMap({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     const draw = () => {
+      if (kind === 'approach') {
+        ctx.clearRect(0, 0, size, size)
+        const t = target.current
+        if (!t) return
+        const scale = size / LANDSCAPE.size
+        const cx = (t.x + LANDSCAPE.size * 0.5) * scale
+        const cy = (t.z + LANDSCAPE.size * 0.5) * scale
+        // The area the camera looks at: a wide disc, soft at its edge, well larger than Explore's landing wedge.
+        const radius = Math.max(10, 320 * scale)
+        const fill = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius)
+        fill.addColorStop(0, 'rgba(242,237,226,0.34)')
+        fill.addColorStop(0.7, 'rgba(242,237,226,0.2)')
+        fill.addColorStop(1, 'rgba(242,237,226,0)')
+        ctx.fillStyle = fill
+        ctx.beginPath()
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.lineWidth = 1
+        ctx.strokeStyle = 'rgba(242,237,226,0.55)'
+        ctx.beginPath()
+        ctx.arc(cx, cy, radius * 0.72, 0, Math.PI * 2)
+        ctx.stroke()
+        return
+      }
       const { x, z, yaw } = nav.current
       const scale = size / LANDSCAPE.size
       const px = (x + LANDSCAPE.size * 0.5) * scale
@@ -195,7 +239,7 @@ export function ExploreMap({
     draw()
     const id = window.setInterval(draw, 80)
     return () => window.clearInterval(id)
-  }, [size, nav])
+  }, [size, nav, kind])
 
   const worldAt = (event: { clientX: number; clientY: number }) => {
     const rect = marker.current!.getBoundingClientRect()
@@ -209,7 +253,7 @@ export function ExploreMap({
   return (
     <div className="explore-map" data-expanded={expanded}>
       <div className="explore-map-head">
-        <span className="explore-map-title">Map</span>
+        <span className="explore-map-title">{kind === 'approach' ? 'Map · Approach' : 'Map'}</span>
         <span className="explore-map-hover">{hover}</span>
         <button
           type="button"
@@ -235,7 +279,9 @@ export function ExploreMap({
           onPointerLeave={() => setHover('')}
           onClick={(event) => {
             const at = worldAt(event)
-            if (at.land) onTeleport(at.x, at.z)
+            if (!at.land) return
+            if (kind === 'approach') target.current = { x: at.x, z: at.z }
+            onTeleport(at.x, at.z)
           }}
         />
       </div>

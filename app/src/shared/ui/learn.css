@@ -351,3 +351,13 @@
 .ui-system .lf-label.is-accent {
   fill: var(--learn-accent);
 }
+
+/* A key phrase in a point (==phrase== in its text): a marker of muted warm grey behind the words, the text kept white. */
+.ui-system .learn-points mark {
+  padding: 0 2px;
+  border-radius: 1px;
+  background: rgba(118, 108, 96, 0.5);
+  color: var(--ui-title);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
