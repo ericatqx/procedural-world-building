@@ -15,3 +15,5 @@ app/vite.config.js
 
 # Temporary local screenshots in labs
 app/src/creature-lab/_[^.]*
+docs/images/readme/captures/
+
