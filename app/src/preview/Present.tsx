@@ -230,23 +230,36 @@ export function PresentationCue({ page }: { page: string }) {
     }
   }, [at])
   // ← / → step notes only while Presentation Mode is on (same as Prev / Next; never navigates). Capture + stopImmediatePropagation so Explore walk does not also strafe.
+  // Bound while Presentation Mode is on (not on each note index), so a note change never drops the listener between keydowns.
+  // Only ignore real typing fields — a focused range slider (Explore time, etc.) must not swallow the shortcuts.
+  const presenting = at !== null
   useEffect(() => {
-    if (at === null) return
+    if (!presenting) return
+    const typing = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false
+      if (target.isContentEditable) return true
+      const tag = target.tagName
+      if (tag === 'TEXTAREA' || tag === 'SELECT') return true
+      if (tag !== 'INPUT') return false
+      const type = (target as HTMLInputElement).type
+      return !type || ['text', 'search', 'email', 'url', 'tel', 'password', 'number', 'date', 'datetime-local', 'month', 'week', 'time'].includes(type)
+    }
     const key = (event: KeyboardEvent) => {
-      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
-      const t = event.target as HTMLElement | null
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+      const left = event.code === 'ArrowLeft' || event.key === 'ArrowLeft'
+      const right = event.code === 'ArrowRight' || event.key === 'ArrowRight'
+      if (!left && !right) return
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (typing(event.target)) return
       event.preventDefault()
       event.stopImmediatePropagation()
       const i = state.at
       if (i === null) return
-      if (event.key === 'ArrowLeft' && i > 0) set({ at: i - 1 })
-      if (event.key === 'ArrowRight' && i < STOPS.length - 1) set({ at: i + 1 })
+      if (left && i > 0) set({ at: i - 1 })
+      if (right && i < STOPS.length - 1) set({ at: i + 1 })
     }
     window.addEventListener('keydown', key, true)
     return () => window.removeEventListener('keydown', key, true)
-  }, [at])
+  }, [presenting])
   // (On a smaller window a moved panel is brought back inside it.)
   useEffect(() => {
     const fit = () => {
