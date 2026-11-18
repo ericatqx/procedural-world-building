@@ -7081,3 +7081,121 @@ body:has(.pv-site),
   text-transform: uppercase;
   cursor: pointer;
 }
+
+/* ── PRESENTER NOTES (Present.tsx, round 22): a small, quiet panel; no animation. By default low on the right, above Explore's rail and clear of the
+   left cards; dragged by its top edge anywhere else. ── */
+.pv-notes-panel {
+  position: fixed;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: min(320px, calc(100vw - 32px));
+  background: rgba(10, 10, 10, 0.8);
+  border: 1px solid var(--rule);
+  color: var(--ui-title);
+}
+
+.pv-notes-panel.is-folded {
+  width: auto;
+}
+
+.pv-notes-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ui-muted);
+  cursor: grab;
+  user-select: none;
+}
+
+.pv-notes-panel.is-folded .pv-notes-bar {
+  border-bottom: 0;
+}
+
+.pv-notes-bar span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pv-notes-tools {
+  display: flex;
+  gap: 10px;
+  flex: none;
+}
+
+.pv-notes-bar button,
+.pv-notes-nav button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+.pv-notes-bar button:hover,
+.pv-notes-nav button:hover:not(:disabled) {
+  color: var(--ui-title);
+}
+
+.pv-notes-say {
+  flex: 1 1 auto;
+  min-height: 48px;
+  margin: 0;
+  padding: 10px 12px 8px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(233, 230, 223, 0.9);
+}
+
+.pv-notes-tip {
+  margin: 0;
+  padding: 0 12px 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ui-muted);
+}
+
+.pv-notes-tip::before {
+  content: 'Do · ';
+  color: #ff1f1f;
+}
+
+.pv-notes-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pv-notes-nav button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.pv-notes-go {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* While presenting, Field Notes leaves a strip on its right for the presenter's notes (Present.tsx › spotFor 'notes'). */
+html[data-presenting] .pv-notes {
+  right: 252px;
+}
